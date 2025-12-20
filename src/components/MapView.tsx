@@ -3,12 +3,45 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { fetchNearbyPlaces, fetchArticleDetails, WikiPlace, WikiArticle } from '@/lib/wikipedia';
 import WikiInfoPanel from './WikiInfoPanel';
-import { MapPin, Loader2 } from 'lucide-react';
+import { MapPin, Loader2, Layers, Navigation, Map, Mountain, Satellite } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+
+type MapLayer = 'standard' | 'terrain' | 'satellite' | 'topo';
+
+const TILE_LAYERS: Record<MapLayer, { url: string; attribution: string; name: string }> = {
+  standard: {
+    url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+    name: 'Standard',
+  },
+  terrain: {
+    url: 'https://stamen-tiles-{s}.a.ssl.fastly.net/terrain/{z}/{x}/{y}.png',
+    attribution: 'Map tiles by <a href="http://stamen.com">Stamen Design</a>',
+    name: 'Terrain',
+  },
+  satellite: {
+    url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+    attribution: 'Tiles &copy; Esri',
+    name: 'Satellite',
+  },
+  topo: {
+    url: 'https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',
+    attribution: '&copy; <a href="https://opentopomap.org">OpenTopoMap</a>',
+    name: 'Topographic',
+  },
+};
 
 const MapView = () => {
   const mapRef = useRef<L.Map | null>(null);
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const markersLayerRef = useRef<L.LayerGroup | null>(null);
+  const tileLayerRef = useRef<L.TileLayer | null>(null);
   
   const [places, setPlaces] = useState<WikiPlace[]>([]);
   const [selectedPlace, setSelectedPlace] = useState<WikiPlace | null>(null);
@@ -16,6 +49,8 @@ const MapView = () => {
   const [isLoadingPlaces, setIsLoadingPlaces] = useState(false);
   const [isLoadingArticle, setIsLoadingArticle] = useState(false);
   const [isPanelOpen, setIsPanelOpen] = useState(false);
+  const [currentLayer, setCurrentLayer] = useState<MapLayer>('standard');
+  const [isLocating, setIsLocating] = useState(false);
   const fetchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const createMarkerIcon = (isSelected: boolean) => {
@@ -83,6 +118,23 @@ const MapView = () => {
     setSelectedArticle(null);
   };
 
+  const changeMapLayer = (layer: MapLayer) => {
+    if (!mapRef.current || !tileLayerRef.current) return;
+    
+    mapRef.current.removeLayer(tileLayerRef.current);
+    tileLayerRef.current = L.tileLayer(TILE_LAYERS[layer].url, {
+      attribution: TILE_LAYERS[layer].attribution,
+    }).addTo(mapRef.current);
+    setCurrentLayer(layer);
+  };
+
+  const handleLocateUser = () => {
+    if (!mapRef.current) return;
+    
+    setIsLocating(true);
+    mapRef.current.locate({ setView: true, maxZoom: 14 });
+  };
+
   // Initialize map
   useEffect(() => {
     if (!mapContainerRef.current || mapRef.current) return;
@@ -95,21 +147,51 @@ const MapView = () => {
     });
 
     // Add tile layer
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+    tileLayerRef.current = L.tileLayer(TILE_LAYERS.standard.url, {
+      attribution: TILE_LAYERS.standard.attribution,
     }).addTo(map);
 
     // Create markers layer
     markersLayerRef.current = L.layerGroup().addTo(map);
 
-    // Add event listeners
-    map.on('moveend', () => {
+    // Trigger fetch on moveend AND zoomend
+    const triggerFetch = () => {
       if (fetchTimeoutRef.current) {
         clearTimeout(fetchTimeoutRef.current);
       }
       fetchTimeoutRef.current = setTimeout(() => {
         fetchPlacesForBounds();
       }, 500);
+    };
+
+    map.on('moveend', triggerFetch);
+    map.on('zoomend', triggerFetch);
+
+    // Handle location found
+    map.on('locationfound', (e) => {
+      setIsLocating(false);
+      L.marker(e.latlng, {
+        icon: L.divIcon({
+          className: 'user-location-marker',
+          html: `
+            <div style="
+              width: 20px;
+              height: 20px;
+              background: hsl(217, 91%, 60%);
+              border-radius: 50%;
+              border: 3px solid white;
+              box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+            "></div>
+          `,
+          iconSize: [20, 20],
+          iconAnchor: [10, 10],
+        }),
+      }).addTo(map).bindPopup('You are here');
+    });
+
+    map.on('locationerror', () => {
+      setIsLocating(false);
+      alert('Could not get your location. Please ensure location access is enabled.');
     });
 
     mapRef.current = map;
@@ -143,9 +225,59 @@ const MapView = () => {
     });
   }, [places, selectedPlace]);
 
+  const getLayerIcon = (layer: MapLayer) => {
+    switch (layer) {
+      case 'terrain': return <Mountain className="w-4 h-4" />;
+      case 'satellite': return <Satellite className="w-4 h-4" />;
+      case 'topo': return <Map className="w-4 h-4" />;
+      default: return <Layers className="w-4 h-4" />;
+    }
+  };
+
   return (
     <div className="relative w-full h-full">
       <div ref={mapContainerRef} className="w-full h-full" />
+
+      {/* Map Controls */}
+      <div className="absolute top-4 right-4 z-[1000] flex flex-col gap-2">
+        {/* Layer Selector */}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="secondary" size="icon" className="shadow-lg">
+              <Layers className="w-4 h-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            {(Object.keys(TILE_LAYERS) as MapLayer[]).map((layer) => (
+              <DropdownMenuItem
+                key={layer}
+                onClick={() => changeMapLayer(layer)}
+                className={currentLayer === layer ? 'bg-accent' : ''}
+              >
+                <span className="flex items-center gap-2">
+                  {getLayerIcon(layer)}
+                  {TILE_LAYERS[layer].name}
+                </span>
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
+
+        {/* Location Button */}
+        <Button 
+          variant="secondary" 
+          size="icon" 
+          className="shadow-lg"
+          onClick={handleLocateUser}
+          disabled={isLocating}
+        >
+          {isLocating ? (
+            <Loader2 className="w-4 h-4 animate-spin" />
+          ) : (
+            <Navigation className="w-4 h-4" />
+          )}
+        </Button>
+      </div>
 
       {/* Loading indicator */}
       {isLoadingPlaces && (
