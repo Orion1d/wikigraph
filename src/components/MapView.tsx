@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
+import { toast } from 'sonner';
 import { fetchNearbyPlaces, fetchArticleDetails, WikiPlace, WikiArticle } from '@/lib/wikipedia';
 import WikiInfoPanel from './WikiInfoPanel';
 import { MapPin, Loader2, Layers, Navigation, Map, Mountain, Satellite } from 'lucide-react';
@@ -14,26 +15,37 @@ import {
 
 type MapLayer = 'standard' | 'terrain' | 'satellite' | 'topo';
 
-const TILE_LAYERS: Record<MapLayer, { url: string; attribution: string; name: string }> = {
+type TileLayerDef = {
+  url: string;
+  attribution: string;
+  name: string;
+  options?: L.TileLayerOptions;
+};
+
+const TILE_LAYERS: Record<MapLayer, TileLayerDef> = {
   standard: {
     url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
     attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
     name: 'Standard',
+    options: { maxZoom: 19, maxNativeZoom: 19, subdomains: 'abc' },
   },
   terrain: {
-    url: 'https://stamen-tiles-{s}.a.ssl.fastly.net/terrain/{z}/{x}/{y}.png',
-    attribution: 'Map tiles by <a href="http://stamen.com">Stamen Design</a>',
+    url: 'https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',
+    attribution: '&copy; <a href="https://opentopomap.org">OpenTopoMap</a>',
     name: 'Terrain',
+    options: { maxZoom: 19, maxNativeZoom: 17, subdomains: 'abc' },
   },
   satellite: {
     url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
     attribution: 'Tiles &copy; Esri',
     name: 'Satellite',
+    options: { maxZoom: 19, maxNativeZoom: 19 },
   },
   topo: {
-    url: 'https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',
-    attribution: '&copy; <a href="https://opentopomap.org">OpenTopoMap</a>',
-    name: 'Topographic',
+    url: 'https://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png',
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, Tiles style by HOT',
+    name: 'Detailed',
+    options: { maxZoom: 19, maxNativeZoom: 19, subdomains: 'abc' },
   },
 };
 
@@ -52,6 +64,7 @@ const MapView = () => {
   const [currentLayer, setCurrentLayer] = useState<MapLayer>('standard');
   const [isLocating, setIsLocating] = useState(false);
   const fetchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const userLocationMarkerRef = useRef<L.Marker | null>(null);
 
   const createMarkerIcon = (isSelected: boolean) => {
     return L.divIcon({
@@ -86,7 +99,10 @@ const MapView = () => {
     const ne = bounds.getNorthEast();
     const sw = bounds.getSouthWest();
     const distance = ne.distanceTo(sw) / 2;
-    return Math.min(distance, 10000);
+
+    // Keep scanning useful even when fully zoomed in.
+    // Wikipedia geosearch can return nothing if radius is too tiny.
+    return Math.min(Math.max(distance, 8000), 10000);
   };
 
   const fetchPlacesForBounds = useCallback(async () => {
@@ -120,12 +136,19 @@ const MapView = () => {
 
   const changeMapLayer = (layer: MapLayer) => {
     if (!mapRef.current || !tileLayerRef.current) return;
-    
+
     mapRef.current.removeLayer(tileLayerRef.current);
     tileLayerRef.current = L.tileLayer(TILE_LAYERS[layer].url, {
       attribution: TILE_LAYERS[layer].attribution,
+      ...(TILE_LAYERS[layer].options || {}),
     }).addTo(mapRef.current);
+
+    tileLayerRef.current.on('tileerror', () => {
+      toast.error(`Map tiles failed to load for ${TILE_LAYERS[layer].name}.`);
+    });
+
     setCurrentLayer(layer);
+    toast(`Map mode: ${TILE_LAYERS[layer].name}`);
   };
 
   const handleLocateUser = () => {
@@ -149,7 +172,12 @@ const MapView = () => {
     // Add tile layer
     tileLayerRef.current = L.tileLayer(TILE_LAYERS.standard.url, {
       attribution: TILE_LAYERS.standard.attribution,
+      ...(TILE_LAYERS.standard.options || {}),
     }).addTo(map);
+
+    tileLayerRef.current.on('tileerror', () => {
+      toast.error(`Map tiles failed to load for ${TILE_LAYERS.standard.name}.`);
+    });
 
     // Create markers layer
     markersLayerRef.current = L.layerGroup().addTo(map);
@@ -166,11 +194,19 @@ const MapView = () => {
 
     map.on('moveend', triggerFetch);
     map.on('zoomend', triggerFetch);
+    // Also fetch while the user is zooming/panning (debounced)
+    map.on('move', triggerFetch);
+    map.on('zoom', triggerFetch);
 
     // Handle location found
     map.on('locationfound', (e) => {
       setIsLocating(false);
-      L.marker(e.latlng, {
+
+      if (userLocationMarkerRef.current) {
+        userLocationMarkerRef.current.remove();
+      }
+
+      userLocationMarkerRef.current = L.marker(e.latlng, {
         icon: L.divIcon({
           className: 'user-location-marker',
           html: `
@@ -186,7 +222,7 @@ const MapView = () => {
           iconSize: [20, 20],
           iconAnchor: [10, 10],
         }),
-      }).addTo(map).bindPopup('You are here');
+      }).addTo(map);
     });
 
     map.on('locationerror', () => {
@@ -243,11 +279,13 @@ const MapView = () => {
         {/* Layer Selector */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="secondary" size="icon" className="shadow-lg">
-              <Layers className="w-4 h-4" />
+            <Button variant="secondary" size="icon" className="shadow-lg" aria-label={`Map mode: ${TILE_LAYERS[currentLayer].name}`}
+              title={`Map mode: ${TILE_LAYERS[currentLayer].name}`}
+            >
+              {getLayerIcon(currentLayer)}
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
+          <DropdownMenuContent align="end" className="z-[2000] bg-popover text-popover-foreground border border-border shadow-md">
             {(Object.keys(TILE_LAYERS) as MapLayer[]).map((layer) => (
               <DropdownMenuItem
                 key={layer}
