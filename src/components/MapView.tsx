@@ -1,46 +1,15 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, useMap, useMapEvents } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { fetchNearbyPlaces, fetchArticleDetails, WikiPlace, WikiArticle } from '@/lib/wikipedia';
 import WikiInfoPanel from './WikiInfoPanel';
 import { MapPin, Loader2 } from 'lucide-react';
 
-// Custom marker icon
-const createMarkerIcon = (isSelected: boolean) => {
-  return L.divIcon({
-    className: 'custom-marker',
-    html: `
-      <div class="w-8 h-8 ${isSelected ? 'bg-primary scale-125' : 'bg-primary/80'} rounded-full flex items-center justify-center shadow-lg border-2 border-primary-foreground transition-transform cursor-pointer hover:scale-110">
-        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-primary-foreground">
-          <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/>
-          <circle cx="12" cy="10" r="3"/>
-        </svg>
-      </div>
-    `,
-    iconSize: [32, 32],
-    iconAnchor: [16, 32],
-  });
-};
-
-interface MapEventsHandlerProps {
-  onMove: (center: L.LatLng, bounds: L.LatLngBounds) => void;
-}
-
-const MapEventsHandler = ({ onMove }: MapEventsHandlerProps) => {
-  const map = useMapEvents({
-    moveend: () => {
-      onMove(map.getCenter(), map.getBounds());
-    },
-    zoomend: () => {
-      onMove(map.getCenter(), map.getBounds());
-    },
-  });
-  
-  return null;
-};
-
 const MapView = () => {
+  const mapRef = useRef<L.Map | null>(null);
+  const mapContainerRef = useRef<HTMLDivElement>(null);
+  const markersLayerRef = useRef<L.LayerGroup | null>(null);
+  
   const [places, setPlaces] = useState<WikiPlace[]>([]);
   const [selectedPlace, setSelectedPlace] = useState<WikiPlace | null>(null);
   const [selectedArticle, setSelectedArticle] = useState<WikiArticle | null>(null);
@@ -49,6 +18,35 @@ const MapView = () => {
   const [isPanelOpen, setIsPanelOpen] = useState(false);
   const fetchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
+  const createMarkerIcon = (isSelected: boolean) => {
+    return L.divIcon({
+      className: 'custom-marker',
+      html: `
+        <div style="
+          width: 32px;
+          height: 32px;
+          background: ${isSelected ? 'hsl(20, 90%, 48%)' : 'hsl(20, 90%, 48%, 0.8)'};
+          border-radius: 50%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+          border: 2px solid hsl(33, 100%, 96%);
+          transform: ${isSelected ? 'scale(1.25)' : 'scale(1)'};
+          transition: transform 0.2s;
+          cursor: pointer;
+        ">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="hsl(33, 100%, 96%)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/>
+            <circle cx="12" cy="10" r="3"/>
+          </svg>
+        </div>
+      `,
+      iconSize: [32, 32],
+      iconAnchor: [16, 32],
+    });
+  };
+
   const calculateRadius = (bounds: L.LatLngBounds) => {
     const ne = bounds.getNorthEast();
     const sw = bounds.getSouthWest();
@@ -56,18 +54,17 @@ const MapView = () => {
     return Math.min(distance, 10000);
   };
 
-  const handleMapMove = useCallback((center: L.LatLng, bounds: L.LatLngBounds) => {
-    if (fetchTimeoutRef.current) {
-      clearTimeout(fetchTimeoutRef.current);
-    }
-
-    fetchTimeoutRef.current = setTimeout(async () => {
-      setIsLoadingPlaces(true);
-      const radius = calculateRadius(bounds);
-      const nearbyPlaces = await fetchNearbyPlaces(center.lat, center.lng, radius);
-      setPlaces(nearbyPlaces);
-      setIsLoadingPlaces(false);
-    }, 500);
+  const fetchPlacesForBounds = useCallback(async () => {
+    if (!mapRef.current) return;
+    
+    const center = mapRef.current.getCenter();
+    const bounds = mapRef.current.getBounds();
+    const radius = calculateRadius(bounds);
+    
+    setIsLoadingPlaces(true);
+    const nearbyPlaces = await fetchNearbyPlaces(center.lat, center.lng, radius);
+    setPlaces(nearbyPlaces);
+    setIsLoadingPlaces(false);
   }, []);
 
   const handleMarkerClick = async (place: WikiPlace) => {
@@ -86,47 +83,69 @@ const MapView = () => {
     setSelectedArticle(null);
   };
 
-  // Initial fetch on mount
+  // Initialize map
   useEffect(() => {
-    const fetchInitialPlaces = async () => {
-      setIsLoadingPlaces(true);
-      const initialPlaces = await fetchNearbyPlaces(48.8566, 2.3522, 5000);
-      setPlaces(initialPlaces);
-      setIsLoadingPlaces(false);
+    if (!mapContainerRef.current || mapRef.current) return;
+
+    // Create map
+    const map = L.map(mapContainerRef.current, {
+      center: [48.8566, 2.3522],
+      zoom: 13,
+      zoomControl: true,
+    });
+
+    // Add tile layer
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+    }).addTo(map);
+
+    // Create markers layer
+    markersLayerRef.current = L.layerGroup().addTo(map);
+
+    // Add event listeners
+    map.on('moveend', () => {
+      if (fetchTimeoutRef.current) {
+        clearTimeout(fetchTimeoutRef.current);
+      }
+      fetchTimeoutRef.current = setTimeout(() => {
+        fetchPlacesForBounds();
+      }, 500);
+    });
+
+    mapRef.current = map;
+
+    // Initial fetch
+    fetchPlacesForBounds();
+
+    return () => {
+      map.remove();
+      mapRef.current = null;
     };
-    fetchInitialPlaces();
-  }, []);
+  }, [fetchPlacesForBounds]);
+
+  // Update markers when places change
+  useEffect(() => {
+    if (!markersLayerRef.current) return;
+
+    // Clear existing markers
+    markersLayerRef.current.clearLayers();
+
+    // Add new markers
+    places.forEach((place) => {
+      const marker = L.marker([place.lat, place.lon], {
+        icon: createMarkerIcon(selectedPlace?.pageid === place.pageid),
+      });
+
+      marker.bindPopup(`<b>${place.title}</b>`);
+      marker.on('click', () => handleMarkerClick(place));
+      
+      markersLayerRef.current?.addLayer(marker);
+    });
+  }, [places, selectedPlace]);
 
   return (
     <div className="relative w-full h-full">
-      <MapContainer
-        center={[48.8566, 2.3522]}
-        zoom={13}
-        className="w-full h-full"
-        zoomControl={false}
-      >
-        <TileLayer
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-        />
-        
-        <MapEventsHandler onMove={handleMapMove} />
-        
-        {places.map((place) => (
-          <Marker
-            key={place.pageid}
-            position={[place.lat, place.lon]}
-            icon={createMarkerIcon(selectedPlace?.pageid === place.pageid)}
-            eventHandlers={{
-              click: () => handleMarkerClick(place),
-            }}
-          >
-            <Popup>
-              <span className="font-medium">{place.title}</span>
-            </Popup>
-          </Marker>
-        ))}
-      </MapContainer>
+      <div ref={mapContainerRef} className="w-full h-full" />
 
       {/* Loading indicator */}
       {isLoadingPlaces && (
