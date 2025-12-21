@@ -4,7 +4,7 @@ import 'leaflet/dist/leaflet.css';
 import { toast } from 'sonner';
 import { fetchNearbyPlaces, fetchArticleDetails, WikiPlace, WikiArticle } from '@/lib/wikipedia';
 import WikiInfoPanel from './WikiInfoPanel';
-import { MapPin, Loader2, Layers, Navigation, Map, Mountain, Satellite, ZoomIn, ZoomOut, Compass } from 'lucide-react';
+import { Loader2, Layers, Navigation, Map, Mountain, Satellite, ZoomIn, ZoomOut, Compass } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -50,7 +50,7 @@ const TILE_LAYERS: Record<MapLayer, TileLayerDef> = {
 };
 
 // Minimum zoom level to enable scanning (below this = too far)
-const MIN_SCAN_ZOOM = 10;
+const MIN_SCAN_ZOOM = 14;
 
 const MapView = () => {
   const mapRef = useRef<L.Map | null>(null);
@@ -325,11 +325,11 @@ const MapView = () => {
               </div>
             )}
             
-            {!isLoadingPlaces && !isScanDisabled && places.length > 0 && (
+            {!isLoadingPlaces && !isScanDisabled && markersLayerRef.current && (
               <div className="bg-card/90 backdrop-blur-md px-4 py-2.5 border-2 border-border shadow-sm flex items-center gap-3">
                 <div className="w-2 h-2 rounded-full bg-primary animate-pulse" />
                 <span className="text-sm font-medium text-card-foreground">
-                  <span className="text-primary font-bold">{places.length}</span> places nearby
+                  <span className="text-primary font-bold">{markersLayerRef.current.getLayers().length}</span> places visible
                 </span>
               </div>
             )}
@@ -403,18 +403,10 @@ const MapView = () => {
         </Button>
       </div>
 
-      {/* Bottom Info Bar */}
-      <div className="absolute bottom-4 left-4 right-4 z-[1000] pointer-events-none">
-        <div className="flex items-center justify-between">
-          {/* Zoom Level Indicator */}
-          <div className="pointer-events-auto bg-card/80 backdrop-blur-md px-3 py-1.5 border border-border text-xs font-mono text-muted-foreground">
-            z{zoomLevel.toFixed(0)}
-          </div>
-          
-          {/* Compass */}
-          <div className="pointer-events-auto bg-card/80 backdrop-blur-md p-2 border border-border">
-            <Compass className="w-4 h-4 text-muted-foreground" />
-          </div>
+      {/* Compass */}
+      <div className="absolute bottom-4 left-4 z-[1000]">
+        <div className="bg-card/80 backdrop-blur-md p-2 border border-border">
+          <Compass className="w-4 h-4 text-muted-foreground" />
         </div>
       </div>
 
