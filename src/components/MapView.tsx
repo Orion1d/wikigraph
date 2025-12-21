@@ -4,7 +4,8 @@ import 'leaflet/dist/leaflet.css';
 import { toast } from 'sonner';
 import { fetchNearbyPlaces, fetchArticleDetails, WikiPlace, WikiArticle } from '@/lib/wikipedia';
 import WikiInfoPanel from './WikiInfoPanel';
-import { Loader2, Layers, Navigation, Map, Mountain, Satellite, ZoomIn, ZoomOut, Compass } from 'lucide-react';
+import { Loader2, Layers, Navigation, Map, Mountain, Satellite, ZoomIn, ZoomOut, Menu, Moon, Sun, Bookmark } from 'lucide-react';
+import { useTheme } from 'next-themes';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -50,13 +51,22 @@ const TILE_LAYERS: Record<MapLayer, TileLayerDef> = {
 };
 
 // Minimum zoom level to enable scanning (below this = too far)
-const MIN_SCAN_ZOOM = 14;
+const MIN_SCAN_ZOOM = 12;
+
+export interface BookmarkedPlace {
+  pageid: number;
+  title: string;
+  lat: number;
+  lon: number;
+  savedAt: number;
+}
 
 const MapView = () => {
   const mapRef = useRef<L.Map | null>(null);
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const markersLayerRef = useRef<L.LayerGroup | null>(null);
   const tileLayerRef = useRef<L.TileLayer | null>(null);
+  const { theme, setTheme } = useTheme();
   
   const [places, setPlaces] = useState<WikiPlace[]>([]);
   const [selectedPlace, setSelectedPlace] = useState<WikiPlace | null>(null);
@@ -68,8 +78,43 @@ const MapView = () => {
   const [isLocating, setIsLocating] = useState(false);
   const [zoomLevel, setZoomLevel] = useState(13);
   const [isScanDisabled, setIsScanDisabled] = useState(false);
+  const [bookmarks, setBookmarks] = useState<BookmarkedPlace[]>([]);
+  const [showBookmarks, setShowBookmarks] = useState(false);
   const fetchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const userLocationMarkerRef = useRef<L.Marker | null>(null);
+
+  // Load bookmarks from localStorage
+  useEffect(() => {
+    const saved = localStorage.getItem('wiki-bookmarks');
+    if (saved) {
+      setBookmarks(JSON.parse(saved));
+    }
+  }, []);
+
+  const toggleBookmark = (place: WikiPlace) => {
+    setBookmarks(prev => {
+      const exists = prev.find(b => b.pageid === place.pageid);
+      let updated: BookmarkedPlace[];
+      if (exists) {
+        updated = prev.filter(b => b.pageid !== place.pageid);
+        toast.success('Bookmark removed');
+      } else {
+        updated = [...prev, { pageid: place.pageid, title: place.title, lat: place.lat, lon: place.lon, savedAt: Date.now() }];
+        toast.success('Bookmark added');
+      }
+      localStorage.setItem('wiki-bookmarks', JSON.stringify(updated));
+      return updated;
+    });
+  };
+
+  const isBookmarked = (pageid: number) => bookmarks.some(b => b.pageid === pageid);
+
+  const flyToBookmark = (bookmark: BookmarkedPlace) => {
+    if (mapRef.current) {
+      mapRef.current.flyTo([bookmark.lat, bookmark.lon], 15);
+      setShowBookmarks(false);
+    }
+  };
 
   const createMarkerIcon = (isSelected: boolean) => {
     return L.divIcon({
@@ -403,12 +448,76 @@ const MapView = () => {
         </Button>
       </div>
 
-      {/* Compass */}
+      {/* Menu Button */}
       <div className="absolute bottom-4 left-4 z-[1000]">
-        <div className="bg-card/80 backdrop-blur-md p-2 border border-border">
-          <Compass className="w-4 h-4 text-muted-foreground" />
-        </div>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button 
+              variant="secondary" 
+              size="icon"
+              className="h-10 w-10 bg-card/90 backdrop-blur-md border-2 border-border shadow-sm hover:bg-card"
+            >
+              <Menu className="w-4 h-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start" side="top" className="z-[2000] bg-card border-2 border-border shadow-md min-w-[180px]">
+            <DropdownMenuItem
+              onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+              className="flex items-center gap-3 cursor-pointer"
+            >
+              {theme === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+              <span className="font-medium">{theme === 'dark' ? 'Light Mode' : 'Dark Mode'}</span>
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={() => setShowBookmarks(true)}
+              className="flex items-center gap-3 cursor-pointer"
+            >
+              <Bookmark className="w-4 h-4" />
+              <span className="font-medium">Bookmarks ({bookmarks.length})</span>
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
+
+      {/* Bookmarks Panel */}
+      {showBookmarks && (
+        <div className="absolute inset-y-0 left-0 w-full sm:w-[320px] bg-card/95 backdrop-blur-xl border-r-2 border-border shadow-2xl z-[1001] flex flex-col">
+          <div className="flex items-center justify-between p-4 border-b-2 border-border bg-card">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-primary flex items-center justify-center">
+                <Bookmark className="w-5 h-5 text-primary-foreground" />
+              </div>
+              <span className="font-semibold text-card-foreground">Bookmarks</span>
+            </div>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setShowBookmarks(false)}
+              className="h-10 w-10 border-2 border-border hover:bg-accent"
+            >
+              <span className="text-lg">×</span>
+            </Button>
+          </div>
+          <div className="flex-1 overflow-auto p-3 space-y-2">
+            {bookmarks.length === 0 ? (
+              <p className="text-muted-foreground text-sm text-center py-8">No bookmarks yet</p>
+            ) : (
+              bookmarks.map(b => (
+                <div
+                  key={b.pageid}
+                  onClick={() => flyToBookmark(b)}
+                  className="p-3 bg-muted/50 border border-border hover:bg-accent cursor-pointer transition-colors"
+                >
+                  <p className="font-medium text-card-foreground text-sm">{b.title}</p>
+                  <p className="text-xs text-muted-foreground font-mono mt-1">
+                    {b.lat.toFixed(4)}° / {b.lon.toFixed(4)}°
+                  </p>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Info Panel */}
       {isPanelOpen && (
@@ -416,6 +525,8 @@ const MapView = () => {
           article={selectedArticle}
           isLoading={isLoadingArticle}
           onClose={handleClosePanel}
+          onToggleBookmark={selectedPlace ? () => toggleBookmark(selectedPlace) : undefined}
+          isBookmarked={selectedPlace ? isBookmarked(selectedPlace.pageid) : false}
         />
       )}
     </div>

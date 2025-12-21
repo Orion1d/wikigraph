@@ -1,4 +1,4 @@
-import { X, ExternalLink, MapPin, Loader2, BookOpen } from 'lucide-react';
+import { X, ExternalLink, MapPin, Loader2, BookOpen, Bookmark } from 'lucide-react';
 import { WikiArticle } from '@/lib/wikipedia';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -7,9 +7,11 @@ interface WikiInfoPanelProps {
   article: WikiArticle | null;
   isLoading: boolean;
   onClose: () => void;
+  onToggleBookmark?: () => void;
+  isBookmarked?: boolean;
 }
 
-const WikiInfoPanel = ({ article, isLoading, onClose }: WikiInfoPanelProps) => {
+const WikiInfoPanel = ({ article, isLoading, onClose, onToggleBookmark, isBookmarked }: WikiInfoPanelProps) => {
   if (!article && !isLoading) return null;
 
   return (
@@ -67,15 +69,28 @@ const WikiInfoPanel = ({ article, isLoading, onClose }: WikiInfoPanelProps) => {
               {article.title}
             </h2>
 
-            {/* Coordinates Badge */}
-            {article.coordinates && (
-              <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-muted border border-border text-xs font-mono text-muted-foreground">
-                <MapPin className="w-3 h-3" />
-                <span>
-                  {article.coordinates.lat.toFixed(4)}° / {article.coordinates.lon.toFixed(4)}°
-                </span>
-              </div>
-            )}
+            {/* Coordinates Badge with Bookmark */}
+            <div className="flex items-center gap-2 flex-wrap">
+              {article.coordinates && (
+                <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-muted border border-border text-xs font-mono text-muted-foreground">
+                  <MapPin className="w-3 h-3" />
+                  <span>
+                    {article.coordinates.lat.toFixed(4)}° / {article.coordinates.lon.toFixed(4)}°
+                  </span>
+                </div>
+              )}
+              {onToggleBookmark && (
+                <Button
+                  variant={isBookmarked ? "default" : "outline"}
+                  size="sm"
+                  onClick={onToggleBookmark}
+                  className="h-8 gap-1.5"
+                >
+                  <Bookmark className={`w-3.5 h-3.5 ${isBookmarked ? 'fill-current' : ''}`} />
+                  <span className="text-xs">{isBookmarked ? 'Saved' : 'Save'}</span>
+                </Button>
+              )}
+            </div>
 
             {/* Extract */}
             <p className="text-card-foreground/85 leading-relaxed text-[15px]">
