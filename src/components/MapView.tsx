@@ -4,7 +4,7 @@ import 'leaflet/dist/leaflet.css';
 import { toast } from 'sonner';
 import { fetchNearbyPlaces, fetchArticleDetails, WikiPlace, WikiArticle } from '@/lib/wikipedia';
 import WikiInfoPanel from './WikiInfoPanel';
-import { MapPin, Loader2, Layers, Navigation, Map, Mountain, Satellite } from 'lucide-react';
+import { MapPin, Loader2, Layers, Navigation, Map, Mountain, Satellite, ZoomIn, ZoomOut, Compass } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -25,13 +25,13 @@ type TileLayerDef = {
 const TILE_LAYERS: Record<MapLayer, TileLayerDef> = {
   standard: {
     url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
-    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+    attribution: '&copy; OpenStreetMap',
     name: 'Standard',
     options: { maxZoom: 19, maxNativeZoom: 19, subdomains: 'abc' },
   },
   terrain: {
     url: 'https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',
-    attribution: '&copy; <a href="https://opentopomap.org">OpenTopoMap</a>',
+    attribution: '&copy; OpenTopoMap',
     name: 'Terrain',
     options: { maxZoom: 19, maxNativeZoom: 17, subdomains: 'abc' },
   },
@@ -43,11 +43,14 @@ const TILE_LAYERS: Record<MapLayer, TileLayerDef> = {
   },
   topo: {
     url: 'https://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png',
-    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, Tiles style by HOT',
+    attribution: '&copy; HOT OSM',
     name: 'Detailed',
     options: { maxZoom: 19, maxNativeZoom: 19, subdomains: 'abc' },
   },
 };
+
+// Minimum zoom level to enable scanning (below this = too far)
+const MIN_SCAN_ZOOM = 10;
 
 const MapView = () => {
   const mapRef = useRef<L.Map | null>(null);
@@ -63,6 +66,8 @@ const MapView = () => {
   const [isPanelOpen, setIsPanelOpen] = useState(false);
   const [currentLayer, setCurrentLayer] = useState<MapLayer>('standard');
   const [isLocating, setIsLocating] = useState(false);
+  const [zoomLevel, setZoomLevel] = useState(13);
+  const [isScanDisabled, setIsScanDisabled] = useState(false);
   const fetchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const userLocationMarkerRef = useRef<L.Marker | null>(null);
 
@@ -71,27 +76,27 @@ const MapView = () => {
       className: 'custom-marker',
       html: `
         <div style="
-          width: 32px;
-          height: 32px;
-          background: ${isSelected ? 'hsl(20, 90%, 48%)' : 'hsl(20, 90%, 48%, 0.8)'};
-          border-radius: 50%;
+          width: ${isSelected ? '40px' : '32px'};
+          height: ${isSelected ? '40px' : '32px'};
+          background: linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(var(--primary) / 0.7) 100%);
+          border-radius: 50% 50% 50% 0;
+          transform: rotate(-45deg) ${isSelected ? 'scale(1.1)' : 'scale(1)'};
           display: flex;
           align-items: center;
           justify-content: center;
-          box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-          border: 2px solid hsl(33, 100%, 96%);
-          transform: ${isSelected ? 'scale(1.25)' : 'scale(1)'};
-          transition: transform 0.2s;
-          cursor: pointer;
+          box-shadow: 0 4px 20px hsl(var(--primary) / 0.4);
+          border: 3px solid hsl(var(--background));
+          transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
         ">
-          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="hsl(33, 100%, 96%)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/>
-            <circle cx="12" cy="10" r="3"/>
-          </svg>
+          <div style="transform: rotate(45deg); display: flex; align-items: center; justify-content: center;">
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="hsl(var(--background))" stroke="hsl(var(--background))" stroke-width="0">
+              <circle cx="12" cy="12" r="4"/>
+            </svg>
+          </div>
         </div>
       `,
-      iconSize: [32, 32],
-      iconAnchor: [16, 32],
+      iconSize: [isSelected ? 40 : 32, isSelected ? 40 : 32],
+      iconAnchor: [isSelected ? 20 : 16, isSelected ? 40 : 32],
     });
   };
 
@@ -99,15 +104,23 @@ const MapView = () => {
     const ne = bounds.getNorthEast();
     const sw = bounds.getSouthWest();
     const distance = ne.distanceTo(sw) / 2;
-
-    // Keep scanning useful even when fully zoomed in.
-    // Wikipedia geosearch can return nothing if radius is too tiny.
     return Math.min(Math.max(distance, 8000), 10000);
   };
 
   const fetchPlacesForBounds = useCallback(async () => {
     if (!mapRef.current) return;
     
+    const zoom = mapRef.current.getZoom();
+    setZoomLevel(zoom);
+    
+    // Disable scanning when zoomed out too far
+    if (zoom < MIN_SCAN_ZOOM) {
+      setIsScanDisabled(true);
+      setPlaces([]);
+      return;
+    }
+    
+    setIsScanDisabled(false);
     const center = mapRef.current.getCenter();
     const bounds = mapRef.current.getBounds();
     const radius = calculateRadius(bounds);
@@ -144,45 +157,50 @@ const MapView = () => {
     }).addTo(mapRef.current);
 
     tileLayerRef.current.on('tileerror', () => {
-      toast.error(`Map tiles failed to load for ${TILE_LAYERS[layer].name}.`);
+      toast.error(`Failed to load ${TILE_LAYERS[layer].name} tiles`);
     });
 
     setCurrentLayer(layer);
-    toast(`Map mode: ${TILE_LAYERS[layer].name}`);
+    toast.success(`${TILE_LAYERS[layer].name} view`);
   };
 
   const handleLocateUser = () => {
     if (!mapRef.current) return;
-    
     setIsLocating(true);
     mapRef.current.locate({ setView: true, maxZoom: 14 });
+  };
+
+  const handleZoomIn = () => {
+    if (!mapRef.current) return;
+    mapRef.current.zoomIn();
+  };
+
+  const handleZoomOut = () => {
+    if (!mapRef.current) return;
+    mapRef.current.zoomOut();
   };
 
   // Initialize map
   useEffect(() => {
     if (!mapContainerRef.current || mapRef.current) return;
 
-    // Create map
     const map = L.map(mapContainerRef.current, {
       center: [48.8566, 2.3522],
       zoom: 13,
-      zoomControl: true,
+      zoomControl: false, // Use custom controls
     });
 
-    // Add tile layer
     tileLayerRef.current = L.tileLayer(TILE_LAYERS.standard.url, {
       attribution: TILE_LAYERS.standard.attribution,
       ...(TILE_LAYERS.standard.options || {}),
     }).addTo(map);
 
     tileLayerRef.current.on('tileerror', () => {
-      toast.error(`Map tiles failed to load for ${TILE_LAYERS.standard.name}.`);
+      toast.error(`Failed to load map tiles`);
     });
 
-    // Create markers layer
     markersLayerRef.current = L.layerGroup().addTo(map);
 
-    // Trigger fetch on moveend AND zoomend
     const triggerFetch = () => {
       if (fetchTimeoutRef.current) {
         clearTimeout(fetchTimeoutRef.current);
@@ -193,12 +211,11 @@ const MapView = () => {
     };
 
     map.on('moveend', triggerFetch);
-    map.on('zoomend', triggerFetch);
-    // Also fetch while the user is zooming/panning (debounced)
-    map.on('move', triggerFetch);
-    map.on('zoom', triggerFetch);
+    map.on('zoomend', () => {
+      setZoomLevel(map.getZoom());
+      triggerFetch();
+    });
 
-    // Handle location found
     map.on('locationfound', (e) => {
       setIsLocating(false);
 
@@ -210,29 +227,41 @@ const MapView = () => {
         icon: L.divIcon({
           className: 'user-location-marker',
           html: `
-            <div style="
-              width: 20px;
-              height: 20px;
-              background: hsl(217, 91%, 60%);
-              border-radius: 50%;
-              border: 3px solid white;
-              box-shadow: 0 2px 8px rgba(0,0,0,0.3);
-            "></div>
+            <div style="position: relative;">
+              <div style="
+                width: 18px;
+                height: 18px;
+                background: hsl(217, 91%, 60%);
+                border-radius: 50%;
+                border: 3px solid hsl(var(--background));
+                box-shadow: 0 0 0 3px hsl(217, 91%, 60% / 0.3), 0 4px 12px rgba(0,0,0,0.2);
+              "></div>
+              <div style="
+                position: absolute;
+                top: -4px;
+                left: -4px;
+                width: 26px;
+                height: 26px;
+                border: 2px solid hsl(217, 91%, 60% / 0.4);
+                border-radius: 50%;
+                animation: pulse 2s infinite;
+              "></div>
+            </div>
           `,
-          iconSize: [20, 20],
-          iconAnchor: [10, 10],
+          iconSize: [26, 26],
+          iconAnchor: [13, 13],
         }),
       }).addTo(map);
+      
+      toast.success('Location found');
     });
 
     map.on('locationerror', () => {
       setIsLocating(false);
-      alert('Could not get your location. Please ensure location access is enabled.');
+      toast.error('Could not get your location');
     });
 
     mapRef.current = map;
-
-    // Initial fetch
     fetchPlacesForBounds();
 
     return () => {
@@ -244,17 +273,18 @@ const MapView = () => {
   // Update markers when places change
   useEffect(() => {
     if (!markersLayerRef.current) return;
-
-    // Clear existing markers
     markersLayerRef.current.clearLayers();
 
-    // Add new markers
     places.forEach((place) => {
       const marker = L.marker([place.lat, place.lon], {
         icon: createMarkerIcon(selectedPlace?.pageid === place.pageid),
       });
 
-      marker.bindPopup(`<b>${place.title}</b>`);
+      marker.bindPopup(`
+        <div style="font-family: var(--font-sans); padding: 4px;">
+          <strong style="font-size: 14px;">${place.title}</strong>
+        </div>
+      `);
       marker.on('click', () => handleMarkerClick(place));
       
       markersLayerRef.current?.addLayer(marker);
@@ -271,41 +301,97 @@ const MapView = () => {
   };
 
   return (
-    <div className="relative w-full h-full">
+    <div className="relative w-full h-full overflow-hidden bg-background">
       <div ref={mapContainerRef} className="w-full h-full" />
 
-      {/* Map Controls */}
-      <div className="absolute top-4 right-4 z-[1000] flex flex-col gap-2">
-        {/* Layer Selector */}
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="secondary" size="icon" className="shadow-lg" aria-label={`Map mode: ${TILE_LAYERS[currentLayer].name}`}
-              title={`Map mode: ${TILE_LAYERS[currentLayer].name}`}
-            >
-              {getLayerIcon(currentLayer)}
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="z-[2000] bg-popover text-popover-foreground border border-border shadow-md">
-            {(Object.keys(TILE_LAYERS) as MapLayer[]).map((layer) => (
-              <DropdownMenuItem
-                key={layer}
-                onClick={() => changeMapLayer(layer)}
-                className={currentLayer === layer ? 'bg-accent' : ''}
-              >
-                <span className="flex items-center gap-2">
-                  {getLayerIcon(layer)}
-                  {TILE_LAYERS[layer].name}
+      {/* Top Status Bar - Glassmorphism */}
+      <div className="absolute top-4 left-4 right-4 z-[1000] pointer-events-none">
+        <div className="flex items-center justify-between">
+          {/* Left: Status */}
+          <div className="pointer-events-auto">
+            {isLoadingPlaces && (
+              <div className="bg-card/90 backdrop-blur-md px-4 py-2.5 border-2 border-border shadow-sm flex items-center gap-3">
+                <div className="relative">
+                  <Loader2 className="w-4 h-4 animate-spin text-primary" />
+                </div>
+                <span className="text-sm font-medium text-card-foreground">Scanning area...</span>
+              </div>
+            )}
+            
+            {!isLoadingPlaces && isScanDisabled && (
+              <div className="bg-muted/90 backdrop-blur-md px-4 py-2.5 border-2 border-border shadow-sm flex items-center gap-3">
+                <ZoomIn className="w-4 h-4 text-muted-foreground" />
+                <span className="text-sm font-medium text-muted-foreground">Zoom in to discover places</span>
+              </div>
+            )}
+            
+            {!isLoadingPlaces && !isScanDisabled && places.length > 0 && (
+              <div className="bg-card/90 backdrop-blur-md px-4 py-2.5 border-2 border-border shadow-sm flex items-center gap-3">
+                <div className="w-2 h-2 rounded-full bg-primary animate-pulse" />
+                <span className="text-sm font-medium text-card-foreground">
+                  <span className="text-primary font-bold">{places.length}</span> places nearby
                 </span>
-              </DropdownMenuItem>
-            ))}
-          </DropdownMenuContent>
-        </DropdownMenu>
+              </div>
+            )}
+          </div>
+
+          {/* Right: Layer Selector */}
+          <div className="pointer-events-auto">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button 
+                  variant="secondary" 
+                  size="sm" 
+                  className="bg-card/90 backdrop-blur-md border-2 border-border shadow-sm hover:bg-card gap-2 h-10"
+                >
+                  {getLayerIcon(currentLayer)}
+                  <span className="hidden sm:inline text-sm font-medium">{TILE_LAYERS[currentLayer].name}</span>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="z-[2000] bg-card border-2 border-border shadow-md min-w-[140px]">
+                {(Object.keys(TILE_LAYERS) as MapLayer[]).map((layer) => (
+                  <DropdownMenuItem
+                    key={layer}
+                    onClick={() => changeMapLayer(layer)}
+                    className={`flex items-center gap-3 cursor-pointer ${currentLayer === layer ? 'bg-accent' : ''}`}
+                  >
+                    {getLayerIcon(layer)}
+                    <span className="font-medium">{TILE_LAYERS[layer].name}</span>
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        </div>
+      </div>
+
+      {/* Right Side Controls - Vertical Stack */}
+      <div className="absolute bottom-24 right-4 z-[1000] flex flex-col gap-2">
+        {/* Zoom Controls */}
+        <div className="bg-card/90 backdrop-blur-md border-2 border-border shadow-sm flex flex-col overflow-hidden">
+          <Button 
+            variant="ghost" 
+            size="icon"
+            onClick={handleZoomIn}
+            className="h-10 w-10 rounded-none border-b border-border hover:bg-accent"
+          >
+            <ZoomIn className="w-4 h-4" />
+          </Button>
+          <Button 
+            variant="ghost" 
+            size="icon"
+            onClick={handleZoomOut}
+            className="h-10 w-10 rounded-none hover:bg-accent"
+          >
+            <ZoomOut className="w-4 h-4" />
+          </Button>
+        </div>
 
         {/* Location Button */}
         <Button 
-          variant="secondary" 
-          size="icon" 
-          className="shadow-lg"
+          variant="secondary"
+          size="icon"
+          className="h-10 w-10 bg-card/90 backdrop-blur-md border-2 border-border shadow-sm hover:bg-card"
           onClick={handleLocateUser}
           disabled={isLocating}
         >
@@ -317,23 +403,20 @@ const MapView = () => {
         </Button>
       </div>
 
-      {/* Loading indicator */}
-      {isLoadingPlaces && (
-        <div className="absolute top-4 left-1/2 -translate-x-1/2 z-[1000] bg-card px-4 py-2 rounded-full shadow-lg border border-border flex items-center gap-2">
-          <Loader2 className="w-4 h-4 animate-spin text-primary" />
-          <span className="text-sm text-card-foreground">Finding places...</span>
+      {/* Bottom Info Bar */}
+      <div className="absolute bottom-4 left-4 right-4 z-[1000] pointer-events-none">
+        <div className="flex items-center justify-between">
+          {/* Zoom Level Indicator */}
+          <div className="pointer-events-auto bg-card/80 backdrop-blur-md px-3 py-1.5 border border-border text-xs font-mono text-muted-foreground">
+            z{zoomLevel.toFixed(0)}
+          </div>
+          
+          {/* Compass */}
+          <div className="pointer-events-auto bg-card/80 backdrop-blur-md p-2 border border-border">
+            <Compass className="w-4 h-4 text-muted-foreground" />
+          </div>
         </div>
-      )}
-
-      {/* Places count */}
-      {!isLoadingPlaces && places.length > 0 && (
-        <div className="absolute top-4 left-4 z-[1000] bg-card px-4 py-2 rounded-full shadow-lg border border-border flex items-center gap-2">
-          <MapPin className="w-4 h-4 text-primary" />
-          <span className="text-sm text-card-foreground">
-            {places.length} places found
-          </span>
-        </div>
-      )}
+      </div>
 
       {/* Info Panel */}
       {isPanelOpen && (
