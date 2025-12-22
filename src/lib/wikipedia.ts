@@ -27,7 +27,8 @@ export async function fetchNearbyPlaces(
   lon: number,
   radius: number = 10000
 ): Promise<WikiPlace[]> {
-  const url = `https://en.wikipedia.org/w/api.php?action=query&list=geosearch&gscoord=${lat}|${lon}&gsradius=${Math.min(radius, 10000)}&gslimit=50&format=json&origin=*`;
+  const safeRadius = Math.floor(Math.min(Math.max(radius, 10), 10000));
+  const url = `https://en.wikipedia.org/w/api.php?action=query&list=geosearch&gscoord=${lat}|${lon}&gsradius=${safeRadius}&gslimit=50&format=json&origin=*`;
   
   try {
     const response = await fetch(url);
