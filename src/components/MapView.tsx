@@ -65,7 +65,6 @@ const MapView = () => {
   const mapRef = useRef<L.Map | null>(null);
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const markersLayerRef = useRef<L.LayerGroup | null>(null);
-  const markersByIdRef = useRef<globalThis.Map<number, L.Marker>>(new globalThis.Map());
   const tileLayerRef = useRef<L.TileLayer | null>(null);
   const { theme, setTheme } = useTheme();
   
@@ -118,8 +117,7 @@ const MapView = () => {
   };
 
   const createMarkerIcon = (isSelected: boolean) => {
-    // Keep pins visible on satellite/dark tiles while still slightly transparent.
-    const opacity = isSelected ? 1 : 0.95;
+    const opacity = isSelected ? 0.9 : 0.55;
 
     return L.divIcon({
       className: 'custom-marker',
@@ -127,7 +125,7 @@ const MapView = () => {
         <div style="
           width: ${isSelected ? '40px' : '32px'};
           height: ${isSelected ? '40px' : '32px'};
-          background: linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(var(--primary) / 0.75) 100%);
+          background: linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(var(--primary) / 0.7) 100%);
           opacity: ${opacity};
           border-radius: 50% 50% 50% 0;
           transform: rotate(-45deg) ${isSelected ? 'scale(1.1)' : 'scale(1)'};
@@ -159,31 +157,25 @@ const MapView = () => {
 
   const fetchPlacesForBounds = useCallback(async () => {
     if (!mapRef.current) return;
-
+    
     const zoom = mapRef.current.getZoom();
     setZoomLevel(zoom);
-
+    
     // Disable scanning when zoomed out too far
     if (zoom < MIN_SCAN_ZOOM) {
       setIsScanDisabled(true);
       setPlaces([]);
       return;
     }
-
+    
     setIsScanDisabled(false);
     const center = mapRef.current.getCenter();
     const bounds = mapRef.current.getBounds();
     const radius = calculateRadius(bounds);
-
+    
     setIsLoadingPlaces(true);
     const nearbyPlaces = await fetchNearbyPlaces(center.lat, center.lng, radius);
-
-    // Wikipedia can occasionally return duplicates; de-dupe so we never render extra pins.
-    const uniquePlaces = Array.from(
-      new globalThis.Map<number, WikiPlace>(nearbyPlaces.map((p) => [p.pageid, p])).values()
-    );
-
-    setPlaces(uniquePlaces);
+    setPlaces(nearbyPlaces);
     setIsLoadingPlaces(false);
   }, []);
 
@@ -326,18 +318,17 @@ const MapView = () => {
     };
   }, [fetchPlacesForBounds]);
 
-  // Create/remove markers when places change (selection updates only change icons, not marker instances)
+  // Update markers when places change
   useEffect(() => {
     if (!markersLayerRef.current) return;
-
     markersLayerRef.current.clearLayers();
-    markersByIdRef.current.clear();
 
     places.forEach((place) => {
       const isSelected = selectedPlace?.pageid === place.pageid;
 
       const marker = L.marker([place.lat, place.lon], {
         icon: createMarkerIcon(isSelected),
+        opacity: isSelected ? 1 : 0.7,
       });
 
       marker.bindPopup(`
@@ -345,20 +336,11 @@ const MapView = () => {
           <strong style="font-size: 14px;">${place.title}</strong>
         </div>
       `);
-
       marker.on('click', () => handleMarkerClick(place));
 
-      markersByIdRef.current.set(place.pageid, marker);
       markersLayerRef.current?.addLayer(marker);
     });
-  }, [places]);
-
-  // Update marker icons when selection changes (prevents “extra pin spawned” feeling)
-  useEffect(() => {
-    markersByIdRef.current.forEach((marker, pageid) => {
-      marker.setIcon(createMarkerIcon(selectedPlace?.pageid === pageid));
-    });
-  }, [selectedPlace]);
+  }, [places, selectedPlace]);
 
   const getLayerIcon = (layer: MapLayer) => {
     switch (layer) {
@@ -394,11 +376,11 @@ const MapView = () => {
               </div>
             )}
             
-            {!isLoadingPlaces && !isScanDisabled && (
+            {!isLoadingPlaces && !isScanDisabled && markersLayerRef.current && (
               <div className="bg-card/90 backdrop-blur-md px-4 py-2.5 border-2 border-border shadow-sm flex items-center gap-3">
                 <div className="w-2 h-2 rounded-full bg-primary animate-pulse" />
                 <span className="text-sm font-medium text-card-foreground">
-                  <span className="text-primary font-bold">{places.length}</span> places visible
+                  <span className="text-primary font-bold">{markersLayerRef.current.getLayers().length}</span> places visible
                 </span>
               </div>
             )}
