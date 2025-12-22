@@ -28,8 +28,14 @@ export async function fetchNearbyPlaces(
   radius: number = 10000
 ): Promise<WikiPlace[]> {
   const safeRadius = Math.floor(Math.min(Math.max(radius, 10), 10000));
-  const url = `https://en.wikipedia.org/w/api.php?action=query&list=geosearch&gscoord=${lat}|${lon}&gsradius=${safeRadius}&gslimit=50&format=json&origin=*`;
-  
+
+  // Leaflet can return longitudes outside [-180, 180] when panning across the dateline.
+  // Wikipedia expects valid coordinates, so normalize/clamp before requesting.
+  const safeLat = Math.min(90, Math.max(-90, lat));
+  const safeLon = ((((lon + 180) % 360) + 360) % 360) - 180;
+
+  const url = `https://en.wikipedia.org/w/api.php?action=query&list=geosearch&gscoord=${safeLat}|${safeLon}&gsradius=${safeRadius}&gslimit=50&format=json&origin=*`;
+
   try {
     const response = await fetch(url);
     const data = await response.json();

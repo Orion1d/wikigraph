@@ -117,6 +117,8 @@ const MapView = () => {
   };
 
   const createMarkerIcon = (isSelected: boolean) => {
+    const opacity = isSelected ? 0.9 : 0.55;
+
     return L.divIcon({
       className: 'custom-marker',
       html: `
@@ -124,6 +126,7 @@ const MapView = () => {
           width: ${isSelected ? '40px' : '32px'};
           height: ${isSelected ? '40px' : '32px'};
           background: linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(var(--primary) / 0.7) 100%);
+          opacity: ${opacity};
           border-radius: 50% 50% 50% 0;
           transform: rotate(-45deg) ${isSelected ? 'scale(1.1)' : 'scale(1)'};
           display: flex;
@@ -321,8 +324,11 @@ const MapView = () => {
     markersLayerRef.current.clearLayers();
 
     places.forEach((place) => {
+      const isSelected = selectedPlace?.pageid === place.pageid;
+
       const marker = L.marker([place.lat, place.lon], {
-        icon: createMarkerIcon(selectedPlace?.pageid === place.pageid),
+        icon: createMarkerIcon(isSelected),
+        opacity: isSelected ? 1 : 0.7,
       });
 
       marker.bindPopup(`
@@ -331,7 +337,7 @@ const MapView = () => {
         </div>
       `);
       marker.on('click', () => handleMarkerClick(place));
-      
+
       markersLayerRef.current?.addLayer(marker);
     });
   }, [places, selectedPlace]);
