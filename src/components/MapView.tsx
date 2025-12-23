@@ -1,6 +1,9 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
+import 'leaflet.markercluster';
+import 'leaflet.markercluster/dist/MarkerCluster.css';
+import 'leaflet.markercluster/dist/MarkerCluster.Default.css';
 import { toast } from 'sonner';
 import { fetchNearbyPlaces, fetchArticleDetails, WikiPlace, WikiArticle } from '@/lib/wikipedia';
 import WikiInfoPanel from './WikiInfoPanel';
@@ -64,7 +67,7 @@ export interface BookmarkedPlace {
 const MapView = () => {
   const mapRef = useRef<L.Map | null>(null);
   const mapContainerRef = useRef<HTMLDivElement>(null);
-  const markersLayerRef = useRef<L.LayerGroup | null>(null);
+  const markersLayerRef = useRef<L.MarkerClusterGroup | null>(null);
   const tileLayerRef = useRef<L.TileLayer | null>(null);
   const { theme, setTheme } = useTheme();
   
@@ -227,7 +230,12 @@ const MapView = () => {
       toast.error(`Failed to load map tiles`);
     });
 
-    markersLayerRef.current = L.layerGroup().addTo(map);
+    markersLayerRef.current = L.markerClusterGroup({
+      maxClusterRadius: 50,
+      spiderfyOnMaxZoom: true,
+      showCoverageOnHover: false,
+      zoomToBoundsOnClick: true,
+    }).addTo(map);
 
     const triggerFetch = () => {
       if (fetchTimeoutRef.current) {
@@ -364,11 +372,11 @@ const MapView = () => {
               </div>
             )}
             
-            {!isLoadingPlaces && !isScanDisabled && markersLayerRef.current && (
+            {!isLoadingPlaces && !isScanDisabled && (
               <div className="bg-card/90 backdrop-blur-md px-4 py-2.5 border-2 border-border shadow-sm flex items-center gap-3">
                 <div className="w-2 h-2 rounded-full bg-primary animate-pulse" />
                 <span className="text-sm font-medium text-card-foreground">
-                  <span className="text-primary font-bold">{markersLayerRef.current.getLayers().length}</span> places visible
+                  <span className="text-primary font-bold">{places.length}</span> places visible
                 </span>
               </div>
             )}
