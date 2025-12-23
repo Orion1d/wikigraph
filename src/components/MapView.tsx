@@ -51,7 +51,7 @@ const TILE_LAYERS: Record<MapLayer, TileLayerDef> = {
 };
 
 // Minimum zoom level to enable scanning (below this = too far)
-const MIN_SCAN_ZOOM = 12;
+const MIN_SCAN_ZOOM = 11;
 
 export interface BookmarkedPlace {
   pageid: number;
@@ -117,32 +117,22 @@ const MapView = () => {
   };
 
   const createMarkerIcon = (isSelected: boolean) => {
+    const size = isSelected ? 28 : 24;
     return L.divIcon({
       className: 'custom-marker',
       html: `
         <div style="
-          width: ${isSelected ? '40px' : '32px'};
-          height: ${isSelected ? '40px' : '32px'};
-          background: linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(var(--primary) / 0.7) 100%);
-          opacity: 1;
+          width: ${size}px;
+          height: ${size}px;
+          background: #000000;
           border-radius: 50% 50% 50% 0;
-          transform: rotate(-45deg) ${isSelected ? 'scale(1.1)' : 'scale(1)'};
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          box-shadow: 0 4px 20px hsl(var(--primary) / 0.4);
-          border: 3px solid hsl(var(--background));
-          transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-        ">
-          <div style="transform: rotate(45deg); display: flex; align-items: center; justify-content: center;">
-            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="hsl(var(--background))" stroke="hsl(var(--background))" stroke-width="0">
-              <circle cx="12" cy="12" r="4"/>
-            </svg>
-          </div>
-        </div>
+          transform: rotate(-45deg);
+          box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+          border: 2px solid #ffffff;
+        "></div>
       `,
-      iconSize: [isSelected ? 40 : 32, isSelected ? 40 : 32],
-      iconAnchor: [isSelected ? 20 : 16, isSelected ? 40 : 32],
+      iconSize: [size, size],
+      iconAnchor: [size / 2, size],
     });
   };
 
@@ -335,7 +325,6 @@ const MapView = () => {
 
       const marker = L.marker([place.lat, lonForView], {
         icon: createMarkerIcon(isSelected),
-        opacity: isSelected ? 1 : 0.7,
       });
 
       marker.bindPopup(`
