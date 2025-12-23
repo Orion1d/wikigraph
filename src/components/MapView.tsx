@@ -117,8 +117,6 @@ const MapView = () => {
   };
 
   const createMarkerIcon = (isSelected: boolean) => {
-    const opacity = isSelected ? 0.9 : 0.55;
-
     return L.divIcon({
       className: 'custom-marker',
       html: `
@@ -126,7 +124,7 @@ const MapView = () => {
           width: ${isSelected ? '40px' : '32px'};
           height: ${isSelected ? '40px' : '32px'};
           background: linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(var(--primary) / 0.7) 100%);
-          opacity: ${opacity};
+          opacity: 1;
           border-radius: 50% 50% 50% 0;
           transform: rotate(-45deg) ${isSelected ? 'scale(1.1)' : 'scale(1)'};
           display: flex;
@@ -323,10 +321,19 @@ const MapView = () => {
     if (!markersLayerRef.current) return;
     markersLayerRef.current.clearLayers();
 
+    // Leaflet wraps the world horizontally; near the dateline the map center lng might be e.g. 191
+    // while Wikipedia returns lng in [-180, 180]. Wrap marker longitudes to the closest world copy.
+    const centerLng = mapRef.current?.getCenter().lng ?? 0;
+    const wrapLonToCenter = (lon: number, center: number) => {
+      const wrapped = lon + 360 * Math.round((center - lon) / 360);
+      return wrapped;
+    };
+
     places.forEach((place) => {
       const isSelected = selectedPlace?.pageid === place.pageid;
+      const lonForView = wrapLonToCenter(place.lon, centerLng);
 
-      const marker = L.marker([place.lat, place.lon], {
+      const marker = L.marker([place.lat, lonForView], {
         icon: createMarkerIcon(isSelected),
         opacity: isSelected ? 1 : 0.7,
       });
