@@ -116,23 +116,15 @@ const MapView = () => {
     }
   };
 
-  const createMarkerIcon = (isSelected: boolean) => {
-    const size = isSelected ? 28 : 24;
-    return L.divIcon({
-      className: 'custom-marker',
-      html: `
-        <div style="
-          width: ${size}px;
-          height: ${size}px;
-          background: #000000;
-          border-radius: 50% 50% 50% 0;
-          transform: rotate(-45deg);
-          box-shadow: 0 2px 8px rgba(0,0,0,0.3);
-          border: 2px solid #ffffff;
-        "></div>
-      `,
-      iconSize: [size, size],
-      iconAnchor: [size / 2, size],
+  const createMarkerIcon = () => {
+    return L.icon({
+      iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
+      iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
+      shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
+      iconSize: [25, 41],
+      iconAnchor: [12, 41],
+      popupAnchor: [1, -34],
+      shadowSize: [41, 41],
     });
   };
 
@@ -324,7 +316,7 @@ const MapView = () => {
       const lonForView = wrapLonToCenter(place.lon, centerLng);
 
       const marker = L.marker([place.lat, lonForView], {
-        icon: createMarkerIcon(isSelected),
+        icon: createMarkerIcon(),
       });
 
       marker.bindPopup(`
