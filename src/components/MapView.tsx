@@ -7,7 +7,7 @@ import 'leaflet.markercluster/dist/MarkerCluster.Default.css';
 import { toast } from 'sonner';
 import { fetchNearbyPlaces, fetchArticleDetails, WikiPlace, WikiArticle } from '@/lib/wikipedia';
 import WikiInfoPanel from './WikiInfoPanel';
-import { Loader2, Layers, Navigation, Map, Mountain, Satellite, ZoomIn, ZoomOut, Menu, Moon, Sun, Bookmark } from 'lucide-react';
+import { Loader2, Layers, Navigation, Map, Satellite, ZoomIn, ZoomOut, Menu, Moon, Sun, Bookmark } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { Button } from '@/components/ui/button';
 import {
@@ -17,7 +17,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 
-type MapLayer = 'standard' | 'terrain' | 'satellite' | 'topo';
+type MapLayer = 'standard' | 'satellite' | 'topo';
 
 type TileLayerDef = {
   url: string;
@@ -32,12 +32,6 @@ const TILE_LAYERS: Record<MapLayer, TileLayerDef> = {
     attribution: '&copy; OpenStreetMap',
     name: 'Standard',
     options: { maxZoom: 19, maxNativeZoom: 19, subdomains: 'abc' },
-  },
-  terrain: {
-    url: 'https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',
-    attribution: '&copy; OpenTopoMap',
-    name: 'Terrain',
-    options: { maxZoom: 19, maxNativeZoom: 17, subdomains: 'abc' },
   },
   satellite: {
     url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
@@ -123,17 +117,13 @@ const MapView = () => {
     return L.divIcon({
       className: 'custom-marker',
       html: `
-        <div style="
-          width: 12px;
-          height: 12px;
-          background: #000000;
-          border-radius: 50%;
-          border: 2px solid #ffffff;
-          box-shadow: 0 2px 6px rgba(0,0,0,0.4);
-        "></div>
+        <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="#000000" stroke="#ffffff" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));">
+          <path d="M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0"/>
+          <circle cx="12" cy="10" r="3" fill="#ffffff" stroke="#000000"/>
+        </svg>
       `,
-      iconSize: [12, 12],
-      iconAnchor: [6, 6],
+      iconSize: [28, 28],
+      iconAnchor: [14, 28],
     });
   };
 
@@ -346,7 +336,6 @@ const MapView = () => {
 
   const getLayerIcon = (layer: MapLayer) => {
     switch (layer) {
-      case 'terrain': return <Mountain className="w-4 h-4" />;
       case 'satellite': return <Satellite className="w-4 h-4" />;
       case 'topo': return <Map className="w-4 h-4" />;
       default: return <Layers className="w-4 h-4" />;
@@ -471,14 +460,14 @@ const MapView = () => {
           <DropdownMenuContent align="start" side="top" className="z-[2000] bg-card border-2 border-border shadow-md min-w-[180px]">
             <DropdownMenuItem
               onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-              className="flex items-center gap-3 cursor-pointer"
+              className="flex items-center gap-3 cursor-pointer text-foreground"
             >
               {theme === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
               <span className="font-medium">{theme === 'dark' ? 'Light Mode' : 'Dark Mode'}</span>
             </DropdownMenuItem>
             <DropdownMenuItem
               onClick={() => setShowBookmarks(true)}
-              className="flex items-center gap-3 cursor-pointer"
+              className="flex items-center gap-3 cursor-pointer text-foreground"
             >
               <Bookmark className="w-4 h-4" />
               <span className="font-medium">Bookmarks ({bookmarks.length})</span>
