@@ -7,7 +7,7 @@ import 'leaflet.markercluster/dist/MarkerCluster.Default.css';
 import { toast } from 'sonner';
 import { fetchNearbyPlaces, fetchArticleDetails, WikiPlace, WikiArticle } from '@/lib/wikipedia';
 import WikiInfoPanel from './WikiInfoPanel';
-import { Loader2, Layers, Navigation, Map, Satellite, ZoomIn, ZoomOut, Menu, Moon, Sun, Bookmark } from 'lucide-react';
+import { Loader2, Layers, Navigation, Map, Satellite, ZoomIn, ZoomOut, Menu, Moon, Sun, Bookmark, Shuffle, Info, Search, Filter } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { Button } from '@/components/ui/button';
 import {
@@ -205,6 +205,43 @@ const MapView = () => {
   const handleZoomOut = () => {
     if (!mapRef.current) return;
     mapRef.current.zoomOut();
+  };
+
+  // Interesting locations around the world for random discovery
+  const DISCOVERY_LOCATIONS = [
+    { name: 'Rome, Italy', lat: 41.9028, lon: 12.4964 },
+    { name: 'Tokyo, Japan', lat: 35.6762, lon: 139.6503 },
+    { name: 'New York, USA', lat: 40.7128, lon: -74.0060 },
+    { name: 'Cairo, Egypt', lat: 30.0444, lon: 31.2357 },
+    { name: 'Sydney, Australia', lat: -33.8688, lon: 151.2093 },
+    { name: 'Machu Picchu, Peru', lat: -13.1631, lon: -72.5450 },
+    { name: 'Athens, Greece', lat: 37.9838, lon: 23.7275 },
+    { name: 'Kyoto, Japan', lat: 35.0116, lon: 135.7681 },
+    { name: 'Barcelona, Spain', lat: 41.3851, lon: 2.1734 },
+    { name: 'Istanbul, Turkey', lat: 41.0082, lon: 28.9784 },
+    { name: 'Petra, Jordan', lat: 30.3285, lon: 35.4444 },
+    { name: 'Angkor Wat, Cambodia', lat: 13.4125, lon: 103.8670 },
+    { name: 'Marrakech, Morocco', lat: 31.6295, lon: -7.9811 },
+    { name: 'Prague, Czech Republic', lat: 50.0755, lon: 14.4378 },
+    { name: 'Vienna, Austria', lat: 48.2082, lon: 16.3738 },
+    { name: 'Lisbon, Portugal', lat: 38.7223, lon: -9.1393 },
+    { name: 'Amsterdam, Netherlands', lat: 52.3676, lon: 4.9041 },
+    { name: 'St. Petersburg, Russia', lat: 59.9343, lon: 30.3351 },
+    { name: 'Buenos Aires, Argentina', lat: -34.6037, lon: -58.3816 },
+    { name: 'Mexico City, Mexico', lat: 19.4326, lon: -99.1332 },
+    { name: 'Jerusalem, Israel', lat: 31.7683, lon: 35.2137 },
+    { name: 'Delhi, India', lat: 28.6139, lon: 77.2090 },
+    { name: 'Beijing, China', lat: 39.9042, lon: 116.4074 },
+    { name: 'Cape Town, South Africa', lat: -33.9249, lon: 18.4241 },
+    { name: 'Havana, Cuba', lat: 23.1136, lon: -82.3666 },
+  ];
+
+  const handleRandomDiscover = () => {
+    if (!mapRef.current) return;
+    const randomIndex = Math.floor(Math.random() * DISCOVERY_LOCATIONS.length);
+    const location = DISCOVERY_LOCATIONS[randomIndex];
+    mapRef.current.flyTo([location.lat, location.lon], 14, { duration: 2 });
+    toast.success(`Exploring ${location.name}`);
   };
 
   // Initialize map
@@ -442,6 +479,17 @@ const MapView = () => {
           ) : (
             <Navigation className="w-4 h-4" />
           )}
+        </Button>
+
+        {/* Random Discover Button */}
+        <Button 
+          variant="secondary"
+          size="icon"
+          className="h-10 w-10 bg-primary backdrop-blur-md border-2 border-border shadow-sm hover:bg-primary/90"
+          onClick={handleRandomDiscover}
+          title="Discover a random place"
+        >
+          <Shuffle className="w-4 h-4 text-primary-foreground" />
         </Button>
       </div>
 
