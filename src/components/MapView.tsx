@@ -229,17 +229,108 @@ const MapView = () => {
     { name: 'St. Petersburg, Russia', lat: 59.9343, lon: 30.3351 },
     { name: 'Buenos Aires, Argentina', lat: -34.6037, lon: -58.3816 },
     { name: 'Mexico City, Mexico', lat: 19.4326, lon: -99.1332 },
-    { name: 'Jerusalem, Israel', lat: 31.7683, lon: 35.2137 },
     { name: 'Delhi, India', lat: 28.6139, lon: 77.2090 },
     { name: 'Beijing, China', lat: 39.9042, lon: 116.4074 },
     { name: 'Cape Town, South Africa', lat: -33.9249, lon: 18.4241 },
     { name: 'Havana, Cuba', lat: 23.1136, lon: -82.3666 },
+    { name: 'Paris, France', lat: 48.8566, lon: 2.3522 },
+    { name: 'London, UK', lat: 51.5074, lon: -0.1278 },
+    { name: 'Berlin, Germany', lat: 52.5200, lon: 13.4050 },
+    { name: 'Munich, Germany', lat: 48.1351, lon: 11.5820 },
+    { name: 'Florence, Italy', lat: 43.7696, lon: 11.2558 },
+    { name: 'Venice, Italy', lat: 45.4408, lon: 12.3155 },
+    { name: 'Naples, Italy', lat: 40.8518, lon: 14.2681 },
+    { name: 'Milan, Italy', lat: 45.4642, lon: 9.1900 },
+    { name: 'Dublin, Ireland', lat: 53.3498, lon: -6.2603 },
+    { name: 'Edinburgh, Scotland', lat: 55.9533, lon: -3.1883 },
+    { name: 'Stockholm, Sweden', lat: 59.3293, lon: 18.0686 },
+    { name: 'Copenhagen, Denmark', lat: 55.6761, lon: 12.5683 },
+    { name: 'Oslo, Norway', lat: 59.9139, lon: 10.7522 },
+    { name: 'Helsinki, Finland', lat: 60.1699, lon: 24.9384 },
+    { name: 'Reykjavik, Iceland', lat: 64.1466, lon: -21.9426 },
+    { name: 'Brussels, Belgium', lat: 50.8503, lon: 4.3517 },
+    { name: 'Zurich, Switzerland', lat: 47.3769, lon: 8.5417 },
+    { name: 'Geneva, Switzerland', lat: 46.2044, lon: 6.1432 },
+    { name: 'Budapest, Hungary', lat: 47.4979, lon: 19.0402 },
+    { name: 'Warsaw, Poland', lat: 52.2297, lon: 21.0122 },
+    { name: 'Krakow, Poland', lat: 50.0647, lon: 19.9450 },
+    { name: 'Dubrovnik, Croatia', lat: 42.6507, lon: 18.0944 },
+    { name: 'Santorini, Greece', lat: 36.3932, lon: 25.4615 },
+    { name: 'Dubai, UAE', lat: 25.2048, lon: 55.2708 },
+    { name: 'Singapore', lat: 1.3521, lon: 103.8198 },
+    { name: 'Hong Kong', lat: 22.3193, lon: 114.1694 },
+    { name: 'Seoul, South Korea', lat: 37.5665, lon: 126.9780 },
+    { name: 'Taipei, Taiwan', lat: 25.0330, lon: 121.5654 },
+    { name: 'Bangkok, Thailand', lat: 13.7563, lon: 100.5018 },
+    { name: 'Hanoi, Vietnam', lat: 21.0285, lon: 105.8542 },
+    { name: 'Bali, Indonesia', lat: -8.3405, lon: 115.0920 },
+    { name: 'Kuala Lumpur, Malaysia', lat: 3.1390, lon: 101.6869 },
+    { name: 'Manila, Philippines', lat: 14.5995, lon: 120.9842 },
+    { name: 'Mumbai, India', lat: 19.0760, lon: 72.8777 },
+    { name: 'Jaipur, India', lat: 26.9124, lon: 75.7873 },
+    { name: 'Kathmandu, Nepal', lat: 27.7172, lon: 85.3240 },
+    { name: 'Shanghai, China', lat: 31.2304, lon: 121.4737 },
+    { name: 'Xi\'an, China', lat: 34.3416, lon: 108.9398 },
+    { name: 'Osaka, Japan', lat: 34.6937, lon: 135.5023 },
+    { name: 'Hiroshima, Japan', lat: 34.3853, lon: 132.4553 },
+    { name: 'Auckland, New Zealand', lat: -36.8509, lon: 174.7645 },
+    { name: 'Queenstown, New Zealand', lat: -45.0312, lon: 168.6626 },
+    { name: 'Melbourne, Australia', lat: -37.8136, lon: 144.9631 },
+    { name: 'Perth, Australia', lat: -31.9505, lon: 115.8605 },
+    { name: 'Fiji', lat: -17.7134, lon: 178.0650 },
+    { name: 'Tahiti, French Polynesia', lat: -17.6509, lon: -149.4260 },
+    { name: 'Casablanca, Morocco', lat: 33.5731, lon: -7.5898 },
+    { name: 'Fez, Morocco', lat: 34.0181, lon: -5.0078 },
+    { name: 'Luxor, Egypt', lat: 25.6872, lon: 32.6396 },
+    { name: 'Nairobi, Kenya', lat: -1.2921, lon: 36.8219 },
+    { name: 'Zanzibar, Tanzania', lat: -6.1659, lon: 39.2026 },
+    { name: 'Victoria Falls, Zimbabwe', lat: -17.9243, lon: 25.8572 },
+    { name: 'Johannesburg, South Africa', lat: -26.2041, lon: 28.0473 },
+    { name: 'Essaouira, Morocco', lat: 31.5125, lon: -9.7700 },
+    { name: 'Toronto, Canada', lat: 43.6532, lon: -79.3832 },
+    { name: 'Vancouver, Canada', lat: 49.2827, lon: -123.1207 },
+    { name: 'Montreal, Canada', lat: 45.5017, lon: -73.5673 },
+    { name: 'Los Angeles, USA', lat: 34.0522, lon: -118.2437 },
+    { name: 'San Francisco, USA', lat: 37.7749, lon: -122.4194 },
+    { name: 'Chicago, USA', lat: 41.8781, lon: -87.6298 },
+    { name: 'Miami, USA', lat: 25.7617, lon: -80.1918 },
+    { name: 'New Orleans, USA', lat: 29.9511, lon: -90.0715 },
+    { name: 'Washington DC, USA', lat: 38.9072, lon: -77.0369 },
+    { name: 'Boston, USA', lat: 42.3601, lon: -71.0589 },
+    { name: 'Cusco, Peru', lat: -13.5319, lon: -71.9675 },
+    { name: 'Rio de Janeiro, Brazil', lat: -22.9068, lon: -43.1729 },
+    { name: 'Cartagena, Colombia', lat: 10.3910, lon: -75.4794 },
+    { name: 'Santiago, Chile', lat: -33.4489, lon: -70.6693 },
+    { name: 'Montevideo, Uruguay', lat: -34.9011, lon: -56.1645 },
+    { name: 'Bogota, Colombia', lat: 4.7110, lon: -74.0721 },
+    { name: 'Lima, Peru', lat: -12.0464, lon: -77.0428 },
+    { name: 'Quito, Ecuador', lat: -0.1807, lon: -78.4678 },
+    { name: 'Galapagos Islands, Ecuador', lat: -0.9538, lon: -90.9656 },
+    { name: 'Patagonia, Argentina', lat: -41.8101, lon: -68.9063 },
+    { name: 'Seville, Spain', lat: 37.3891, lon: -5.9845 },
   ];
+
+  // Track last 10 visited locations to avoid repeats
+  const discoveryHistoryRef = useRef<number[]>([]);
 
   const handleRandomDiscover = () => {
     if (!mapRef.current) return;
-    const randomIndex = Math.floor(Math.random() * DISCOVERY_LOCATIONS.length);
+    
+    // Filter out recently visited locations
+    const availableIndices = DISCOVERY_LOCATIONS.map((_, i) => i)
+      .filter(i => !discoveryHistoryRef.current.includes(i));
+    
+    // If all locations have been visited recently, reset history
+    const indicesToChooseFrom = availableIndices.length > 0 
+      ? availableIndices 
+      : DISCOVERY_LOCATIONS.map((_, i) => i);
+    
+    const randomIndex = indicesToChooseFrom[Math.floor(Math.random() * indicesToChooseFrom.length)];
     const location = DISCOVERY_LOCATIONS[randomIndex];
+    
+    // Add to history and keep only last 10
+    discoveryHistoryRef.current = [...discoveryHistoryRef.current, randomIndex].slice(-10);
+    
     mapRef.current.flyTo([location.lat, location.lon], 14, { duration: 2 });
     toast.success(`Exploring ${location.name}`);
   };
