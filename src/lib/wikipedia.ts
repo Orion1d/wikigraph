@@ -25,7 +25,8 @@ export interface WikiArticle {
 export async function fetchNearbyPlaces(
   lat: number,
   lon: number,
-  radius: number = 10000
+  radius: number = 10000,
+  language: string = 'en'
 ): Promise<WikiPlace[]> {
   const safeRadius = Math.floor(Math.min(Math.max(radius, 10), 10000));
 
@@ -34,7 +35,7 @@ export async function fetchNearbyPlaces(
   const safeLat = Math.min(90, Math.max(-90, lat));
   const safeLon = ((((lon + 180) % 360) + 360) % 360) - 180;
 
-  const url = `https://en.wikipedia.org/w/api.php?action=query&list=geosearch&gscoord=${safeLat}|${safeLon}&gsradius=${safeRadius}&gslimit=100&format=json&origin=*`;
+  const url = `https://${language}.wikipedia.org/w/api.php?action=query&list=geosearch&gscoord=${safeLat}|${safeLon}&gsradius=${safeRadius}&gslimit=100&format=json&origin=*`;
 
   try {
     const response = await fetch(url);
@@ -46,8 +47,8 @@ export async function fetchNearbyPlaces(
   }
 }
 
-export async function fetchArticleDetails(pageid: number): Promise<WikiArticle | null> {
-  const url = `https://en.wikipedia.org/w/api.php?action=query&pageids=${pageid}&prop=extracts|pageimages|coordinates|info&exintro=true&explaintext=true&piprop=thumbnail&pithumbsize=400&inprop=url&format=json&origin=*`;
+export async function fetchArticleDetails(pageid: number, language: string = 'en'): Promise<WikiArticle | null> {
+  const url = `https://${language}.wikipedia.org/w/api.php?action=query&pageids=${pageid}&prop=extracts|pageimages|coordinates|info&exintro=true&explaintext=true&piprop=thumbnail&pithumbsize=400&inprop=url&format=json&origin=*`;
   
   try {
     const response = await fetch(url);
@@ -66,6 +67,38 @@ export async function fetchArticleDetails(pageid: number): Promise<WikiArticle |
     };
   } catch (error) {
     console.error('Error fetching article details:', error);
+    return null;
+  }
+}
+
+export async function searchPlaceByName(
+  query: string,
+  language: string = 'en'
+): Promise<{ lat: number; lon: number; title: string } | null> {
+  const url = `https://${language}.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(query)}&srlimit=1&format=json&origin=*`;
+  
+  try {
+    const response = await fetch(url);
+    const data = await response.json();
+    const result = data.query?.search?.[0];
+    
+    if (!result) return null;
+    
+    // Get coordinates for the found page
+    const coordUrl = `https://${language}.wikipedia.org/w/api.php?action=query&pageids=${result.pageid}&prop=coordinates&format=json&origin=*`;
+    const coordResponse = await fetch(coordUrl);
+    const coordData = await coordResponse.json();
+    const coords = coordData.query?.pages?.[result.pageid]?.coordinates?.[0];
+    
+    if (!coords) return null;
+    
+    return {
+      lat: coords.lat,
+      lon: coords.lon,
+      title: result.title,
+    };
+  } catch (error) {
+    console.error('Error searching for place:', error);
     return null;
   }
 }
