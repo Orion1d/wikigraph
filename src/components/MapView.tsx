@@ -5,9 +5,10 @@ import 'leaflet.markercluster';
 import 'leaflet.markercluster/dist/MarkerCluster.css';
 import 'leaflet.markercluster/dist/MarkerCluster.Default.css';
 import { toast } from 'sonner';
-import { fetchNearbyPlaces, fetchArticleDetails, WikiPlace, WikiArticle } from '@/lib/wikipedia';
+import { fetchNearbyPlaces, fetchArticleDetails, searchPlaceByName, WikiPlace, WikiArticle } from '@/lib/wikipedia';
 import WikiInfoPanel from './WikiInfoPanel';
-import { Loader2, Layers, Navigation, Map, Satellite, ZoomIn, ZoomOut, Menu, Moon, Sun, Bookmark, Shuffle, Info, Search, Filter } from 'lucide-react';
+import SearchPanel, { WikiCategory, WikiLanguage } from './SearchPanel';
+import { Loader2, Layers, Navigation, Map, Satellite, ZoomIn, ZoomOut, Menu, Moon, Sun, Bookmark, Shuffle, Search } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { Button } from '@/components/ui/button';
 import {
@@ -77,6 +78,9 @@ const MapView = () => {
   const [isScanDisabled, setIsScanDisabled] = useState(false);
   const [bookmarks, setBookmarks] = useState<BookmarkedPlace[]>([]);
   const [showBookmarks, setShowBookmarks] = useState(false);
+  const [showSearch, setShowSearch] = useState(false);
+  const [selectedCategory, setSelectedCategory] = useState<WikiCategory>('all');
+  const [selectedLanguage, setSelectedLanguage] = useState<WikiLanguage>('en');
   const fetchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const userLocationMarkerRef = useRef<L.Marker | null>(null);
 
@@ -153,19 +157,40 @@ const MapView = () => {
     const radius = calculateRadius(bounds);
     
     setIsLoadingPlaces(true);
-    const nearbyPlaces = await fetchNearbyPlaces(center.lat, center.lng, radius);
+    const nearbyPlaces = await fetchNearbyPlaces(center.lat, center.lng, radius, selectedLanguage);
     setPlaces(nearbyPlaces);
     setIsLoadingPlaces(false);
-  }, []);
+  }, [selectedLanguage]);
 
   const handleMarkerClick = async (place: WikiPlace) => {
     setSelectedPlace(place);
     setIsPanelOpen(true);
     setIsLoadingArticle(true);
     
-    const article = await fetchArticleDetails(place.pageid);
+    const article = await fetchArticleDetails(place.pageid, selectedLanguage);
     setSelectedArticle(article);
     setIsLoadingArticle(false);
+  };
+
+  const handleSearch = async (query: string, coords?: { lat: number; lon: number }) => {
+    if (!mapRef.current) return;
+    
+    if (coords) {
+      mapRef.current.flyTo([coords.lat, coords.lon], 14, { duration: 2 });
+      toast.success(`Flying to ${coords.lat.toFixed(4)}, ${coords.lon.toFixed(4)}`);
+      setShowSearch(false);
+      return;
+    }
+    
+    // Search by name
+    const result = await searchPlaceByName(query, selectedLanguage);
+    if (result) {
+      mapRef.current.flyTo([result.lat, result.lon], 14, { duration: 2 });
+      toast.success(`Found: ${result.title}`);
+      setShowSearch(false);
+    } else {
+      toast.error('Place not found. Try a different search.');
+    }
   };
 
   const handleClosePanel = () => {
@@ -598,6 +623,13 @@ const MapView = () => {
           </DropdownMenuTrigger>
           <DropdownMenuContent align="start" side="top" className="z-[2000] bg-card border-2 border-border shadow-md min-w-[180px]">
             <DropdownMenuItem
+              onClick={() => setShowSearch(true)}
+              className="flex items-center gap-3 cursor-pointer text-foreground"
+            >
+              <Search className="w-4 h-4" />
+              <span className="font-medium">Search & Filters</span>
+            </DropdownMenuItem>
+            <DropdownMenuItem
               onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
               className="flex items-center gap-3 cursor-pointer text-foreground"
             >
@@ -654,6 +686,21 @@ const MapView = () => {
           </div>
         </div>
       )}
+
+      {/* Search Panel */}
+      <SearchPanel
+        isOpen={showSearch}
+        onClose={() => setShowSearch(false)}
+        onSearch={handleSearch}
+        selectedCategory={selectedCategory}
+        onCategoryChange={setSelectedCategory}
+        selectedLanguage={selectedLanguage}
+        onLanguageChange={(lang) => {
+          setSelectedLanguage(lang);
+          // Refetch places when language changes
+          setTimeout(() => fetchPlacesForBounds(), 100);
+        }}
+      />
 
       {/* Info Panel */}
       {isPanelOpen && (
