@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Search, X, Filter, Globe, ChevronDown, ChevronRight, MapPin } from 'lucide-react';
+import { Search, X, Globe, ChevronDown, ChevronRight, MapPin } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -8,29 +8,15 @@ import {
   CollapsibleTrigger,
 } from '@/components/ui/collapsible';
 
-export type WikiCategory = 'all' | 'landmarks' | 'museums' | 'nature' | 'historical' | 'religious' | 'architecture';
-
 export type WikiLanguage = 'en' | 'es' | 'fr' | 'de' | 'it' | 'pt' | 'ru' | 'ja' | 'zh' | 'ar' | 'ko' | 'nl' | 'pl' | 'sv' | 'tr';
 
 interface SearchPanelProps {
   isOpen: boolean;
   onClose: () => void;
   onSearch: (query: string, coords?: { lat: number; lon: number }) => void;
-  selectedCategory: WikiCategory;
-  onCategoryChange: (category: WikiCategory) => void;
   selectedLanguage: WikiLanguage;
   onLanguageChange: (language: WikiLanguage) => void;
 }
-
-const CATEGORIES: { id: WikiCategory; label: string; icon: string }[] = [
-  { id: 'all', label: 'All Places', icon: '🌍' },
-  { id: 'landmarks', label: 'Landmarks', icon: '🗼' },
-  { id: 'museums', label: 'Museums', icon: '🏛️' },
-  { id: 'nature', label: 'Nature', icon: '🌲' },
-  { id: 'historical', label: 'Historical', icon: '🏰' },
-  { id: 'religious', label: 'Religious', icon: '⛪' },
-  { id: 'architecture', label: 'Architecture', icon: '🏗️' },
-];
 
 const LANGUAGES: { code: WikiLanguage; name: string; native: string }[] = [
   { code: 'en', name: 'English', native: 'English' },
@@ -54,13 +40,10 @@ const SearchPanel = ({
   isOpen,
   onClose,
   onSearch,
-  selectedCategory,
-  onCategoryChange,
   selectedLanguage,
   onLanguageChange,
 }: SearchPanelProps) => {
   const [searchQuery, setSearchQuery] = useState('');
-  const [isFiltersOpen, setIsFiltersOpen] = useState(false);
   const [isLanguageOpen, setIsLanguageOpen] = useState(false);
 
   const handleSearch = () => {
@@ -137,46 +120,6 @@ const SearchPanel = ({
 
       {/* Content */}
       <div className="flex-1 overflow-auto">
-        {/* Categories Section */}
-        <Collapsible open={isFiltersOpen} onOpenChange={setIsFiltersOpen}>
-          <CollapsibleTrigger asChild>
-            <button className="w-full flex items-center justify-between p-4 hover:bg-accent/50 transition-colors border-b border-border">
-              <div className="flex items-center gap-3">
-                <Filter className="w-4 h-4 text-muted-foreground" />
-                <span className="font-medium text-card-foreground">Categories</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="text-sm text-muted-foreground">
-                  {CATEGORIES.find(c => c.id === selectedCategory)?.label}
-                </span>
-                {isFiltersOpen ? (
-                  <ChevronDown className="w-4 h-4 text-muted-foreground" />
-                ) : (
-                  <ChevronRight className="w-4 h-4 text-muted-foreground" />
-                )}
-              </div>
-            </button>
-          </CollapsibleTrigger>
-          <CollapsibleContent>
-            <div className="p-3 space-y-1 bg-muted/30">
-              {CATEGORIES.map((category) => (
-                <button
-                  key={category.id}
-                  onClick={() => onCategoryChange(category.id)}
-                  className={`w-full flex items-center gap-3 p-3 transition-colors text-left ${
-                    selectedCategory === category.id
-                      ? 'bg-primary text-primary-foreground'
-                      : 'hover:bg-accent text-card-foreground'
-                  }`}
-                >
-                  <span className="text-lg">{category.icon}</span>
-                  <span className="font-medium">{category.label}</span>
-                </button>
-              ))}
-            </div>
-          </CollapsibleContent>
-        </Collapsible>
-
         {/* Language Section */}
         <Collapsible open={isLanguageOpen} onOpenChange={setIsLanguageOpen}>
           <CollapsibleTrigger asChild>

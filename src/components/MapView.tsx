@@ -7,7 +7,7 @@ import 'leaflet.markercluster/dist/MarkerCluster.Default.css';
 import { toast } from 'sonner';
 import { fetchNearbyPlaces, fetchArticleDetails, searchPlaceByName, WikiPlace, WikiArticle } from '@/lib/wikipedia';
 import WikiInfoPanel from './WikiInfoPanel';
-import SearchPanel, { WikiCategory, WikiLanguage } from './SearchPanel';
+import SearchPanel, { WikiLanguage } from './SearchPanel';
 import { Loader2, Layers, Navigation, Map, Satellite, ZoomIn, ZoomOut, Menu, Moon, Sun, Bookmark, Shuffle, Search } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { Button } from '@/components/ui/button';
@@ -79,7 +79,7 @@ const MapView = () => {
   const [bookmarks, setBookmarks] = useState<BookmarkedPlace[]>([]);
   const [showBookmarks, setShowBookmarks] = useState(false);
   const [showSearch, setShowSearch] = useState(false);
-  const [selectedCategory, setSelectedCategory] = useState<WikiCategory>('all');
+  
   const [selectedLanguage, setSelectedLanguage] = useState<WikiLanguage>('en');
   const fetchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const userLocationMarkerRef = useRef<L.Marker | null>(null);
@@ -692,8 +692,6 @@ const MapView = () => {
         isOpen={showSearch}
         onClose={() => setShowSearch(false)}
         onSearch={handleSearch}
-        selectedCategory={selectedCategory}
-        onCategoryChange={setSelectedCategory}
         selectedLanguage={selectedLanguage}
         onLanguageChange={(lang) => {
           setSelectedLanguage(lang);
