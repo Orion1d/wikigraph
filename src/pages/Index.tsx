@@ -4,7 +4,7 @@ import { Globe, Info } from 'lucide-react';
 
 const Index = () => {
   useEffect(() => {
-    document.title = 'WikiMap - Explore Places with Wikipedia';
+    document.title = 'WikiGraph - Discover Knowledge Everywhere';
   }, []);
 
   return (
@@ -12,18 +12,20 @@ const Index = () => {
       {/* Header */}
       <header className="bg-card border-b border-border px-4 py-3 flex items-center justify-between z-10 shadow-sm">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-lg bg-primary flex items-center justify-center">
-            <Globe className="w-6 h-6 text-primary-foreground" />
+          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-primary/70 flex items-center justify-center shadow-md">
+            <Globe className="w-5 h-5 text-primary-foreground" />
           </div>
           <div>
-            <h1 className="font-serif text-xl font-bold text-card-foreground">WikiMap</h1>
-            <p className="text-xs text-muted-foreground">Explore places • Learn history</p>
+            <h1 className="font-serif text-xl font-bold text-card-foreground tracking-tight">
+              Wiki<span className="text-primary">Graph</span>
+            </h1>
+            <p className="text-xs text-muted-foreground">Discover knowledge everywhere</p>
           </div>
         </div>
         
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
           <Info className="w-4 h-4" />
-          <span className="hidden sm:inline">Click markers to learn more</span>
+          <span className="hidden sm:inline">Click markers to explore</span>
         </div>
       </header>
 
