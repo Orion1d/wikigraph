@@ -79,6 +79,7 @@ const MapView = () => {
   const [bookmarks, setBookmarks] = useState<BookmarkedPlace[]>([]);
   const [showBookmarks, setShowBookmarks] = useState(false);
   const [showSearch, setShowSearch] = useState(false);
+  const [visibleCount, setVisibleCount] = useState(0);
   
   const [selectedLanguage, setSelectedLanguage] = useState<WikiLanguage>('en');
   const fetchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -137,6 +138,38 @@ const MapView = () => {
     const distance = ne.distanceTo(sw) / 2;
     return Math.min(Math.max(distance, 8000), 10000);
   };
+
+  const updateVisibleCount = useCallback(() => {
+    const map = mapRef.current;
+    const group = markersLayerRef.current;
+    if (!map || !group) {
+      setVisibleCount(0);
+      return;
+    }
+
+    const bounds = map.getBounds();
+    let count = 0;
+
+    group.eachLayer((layer: any) => {
+      // Marker
+      if (layer?.getLatLng) {
+        const ll: L.LatLng = layer.getLatLng();
+        if (bounds.contains(ll)) count += 1;
+        return;
+      }
+
+      // Cluster
+      if (layer?.getAllChildMarkers) {
+        const children: L.Marker[] = layer.getAllChildMarkers();
+        for (const m of children) {
+          const ll = m.getLatLng();
+          if (bounds.contains(ll)) count += 1;
+        }
+      }
+    });
+
+    setVisibleCount(count);
+  }, []);
 
   const fetchPlacesForBounds = useCallback(async () => {
     if (!mapRef.current) return;
@@ -395,10 +428,14 @@ const MapView = () => {
       }, 500);
     };
 
-    map.on('moveend', triggerFetch);
+    map.on('moveend', () => {
+      triggerFetch();
+      updateVisibleCount();
+    });
     map.on('zoomend', () => {
       setZoomLevel(map.getZoom());
       triggerFetch();
+      updateVisibleCount();
     });
 
     map.on('locationfound', (e) => {
@@ -448,6 +485,7 @@ const MapView = () => {
 
     mapRef.current = map;
     fetchPlacesForBounds();
+    updateVisibleCount();
 
     return () => {
       map.remove();
@@ -485,7 +523,9 @@ const MapView = () => {
 
       markersLayerRef.current?.addLayer(marker);
     });
-  }, [places, selectedPlace]);
+
+    updateVisibleCount();
+  }, [places, selectedPlace, updateVisibleCount]);
 
   const getLayerIcon = (layer: MapLayer) => {
     switch (layer) {
@@ -524,7 +564,7 @@ const MapView = () => {
               <div className="bg-card/90 backdrop-blur-md px-4 py-2.5 border-2 border-border shadow-sm flex items-center gap-3">
                 <div className="w-2 h-2 rounded-full bg-primary animate-pulse" />
                 <span className="text-sm font-medium text-card-foreground">
-                  <span className="text-primary font-bold">{markersLayerRef.current?.getLayers().length ?? 0}</span> places visible
+                  <span className="text-primary font-bold">{visibleCount}</span> places visible
                 </span>
               </div>
             )}
