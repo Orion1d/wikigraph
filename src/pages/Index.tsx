@@ -1,38 +1,41 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import MapView from '@/components/MapView';
-import { Globe, Info } from 'lucide-react';
+import { Globe } from 'lucide-react';
 
 const Index = () => {
+  const [showSplash, setShowSplash] = useState(true);
+
   useEffect(() => {
     document.title = 'WikiGraph - Discover Knowledge Everywhere';
+    
+    const timer = setTimeout(() => {
+      setShowSplash(false);
+    }, 2000);
+
+    return () => clearTimeout(timer);
   }, []);
 
-  return (
-    <div className="h-screen w-screen flex flex-col overflow-hidden">
-      {/* Header */}
-      <header className="bg-card border-b border-border px-4 py-3 flex items-center justify-between z-10 shadow-sm">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-primary/70 flex items-center justify-center shadow-md">
-            <Globe className="w-5 h-5 text-primary-foreground" />
+  if (showSplash) {
+    return (
+      <div className="h-screen w-screen flex flex-col items-center justify-center bg-background">
+        <div className="flex flex-col items-center gap-6 animate-fade-in">
+          <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-primary to-primary/70 flex items-center justify-center shadow-lg">
+            <Globe className="w-10 h-10 text-primary-foreground animate-pulse" />
           </div>
-          <div>
-            <h1 className="font-serif text-xl font-bold text-card-foreground tracking-tight">
+          <div className="text-center">
+            <h1 className="font-serif text-3xl font-bold text-foreground tracking-tight">
               Wiki<span className="text-primary">Graph</span>
             </h1>
-            <p className="text-xs text-muted-foreground">Discover knowledge everywhere</p>
+            <p className="text-sm text-muted-foreground mt-2">Discover knowledge everywhere</p>
           </div>
         </div>
-        
-        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-          <Info className="w-4 h-4" />
-          <span className="hidden sm:inline">Click markers to explore</span>
-        </div>
-      </header>
+      </div>
+    );
+  }
 
-      {/* Map */}
-      <main className="flex-1 relative">
-        <MapView />
-      </main>
+  return (
+    <div className="h-screen w-screen overflow-hidden">
+      <MapView />
     </div>
   );
 };
