@@ -8,7 +8,7 @@ import { toast } from 'sonner';
 import { fetchNearbyPlaces, fetchArticleDetails, searchPlaceByName, WikiPlace, WikiArticle } from '@/lib/wikipedia';
 import WikiInfoPanel from './WikiInfoPanel';
 import SearchPanel, { WikiLanguage } from './SearchPanel';
-import { Loader2, Layers, Navigation, Map, Satellite, ZoomIn, ZoomOut, Menu, Moon, Sun, Bookmark, Shuffle, Search } from 'lucide-react';
+import { Loader2, Layers, Navigation, Map, Satellite, ZoomIn, ZoomOut, Menu, Moon, Sun, Bookmark, Shuffle, Search, Globe, ChevronRight } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { Button } from '@/components/ui/button';
 import {
@@ -365,7 +365,7 @@ const MapView = () => {
     if (!mapContainerRef.current || mapRef.current) return;
 
     const map = L.map(mapContainerRef.current, {
-      center: [48.8566, 2.3522],
+      center: [41.0082, 28.9784], // Istanbul
       zoom: 13,
       zoomControl: false, // Use custom controls
     });
@@ -524,7 +524,7 @@ const MapView = () => {
               <div className="bg-card/90 backdrop-blur-md px-4 py-2.5 border-2 border-border shadow-sm flex items-center gap-3">
                 <div className="w-2 h-2 rounded-full bg-primary animate-pulse" />
                 <span className="text-sm font-medium text-card-foreground">
-                  <span className="text-primary font-bold">{places.length}</span> places visible
+                  <span className="text-primary font-bold">{markersLayerRef.current?.getLayers().length ?? 0}</span> places visible
                 </span>
               </div>
             )}
@@ -627,8 +627,32 @@ const MapView = () => {
               className="flex items-center gap-3 cursor-pointer text-foreground"
             >
               <Search className="w-4 h-4" />
-              <span className="font-medium">Search & Filters</span>
+              <span className="font-medium">Search</span>
             </DropdownMenuItem>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <div className="flex items-center gap-3 cursor-pointer text-foreground px-2 py-1.5 text-sm hover:bg-accent rounded-sm">
+                  <Globe className="w-4 h-4" />
+                  <span className="font-medium flex-1">Language</span>
+                  <span className="text-xs text-muted-foreground">{selectedLanguage.toUpperCase()}</span>
+                  <ChevronRight className="w-3 h-3 text-muted-foreground" />
+                </div>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent side="right" align="start" className="z-[2001] bg-card border-2 border-border shadow-md max-h-[300px] overflow-auto">
+                {(['en', 'es', 'fr', 'de', 'it', 'pt', 'ru', 'ja', 'zh', 'ar', 'ko', 'nl', 'pl', 'sv', 'tr'] as const).map((lang) => (
+                  <DropdownMenuItem
+                    key={lang}
+                    onClick={() => {
+                      setSelectedLanguage(lang);
+                      setTimeout(() => fetchPlacesForBounds(), 100);
+                    }}
+                    className={`cursor-pointer ${selectedLanguage === lang ? 'bg-accent' : ''}`}
+                  >
+                    <span className="font-medium">{lang.toUpperCase()}</span>
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
             <DropdownMenuItem
               onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
               className="flex items-center gap-3 cursor-pointer text-foreground"
@@ -692,12 +716,6 @@ const MapView = () => {
         isOpen={showSearch}
         onClose={() => setShowSearch(false)}
         onSearch={handleSearch}
-        selectedLanguage={selectedLanguage}
-        onLanguageChange={(lang) => {
-          setSelectedLanguage(lang);
-          // Refetch places when language changes
-          setTimeout(() => fetchPlacesForBounds(), 100);
-        }}
       />
 
       {/* Info Panel */}
