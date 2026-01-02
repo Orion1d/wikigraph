@@ -8,7 +8,7 @@ import { toast } from 'sonner';
 import { fetchNearbyPlaces, fetchArticleDetails, searchPlaceByName, WikiPlace, WikiArticle } from '@/lib/wikipedia';
 import WikiInfoPanel from './WikiInfoPanel';
 import SearchPanel, { WikiLanguage } from './SearchPanel';
-import { Loader2, Layers, Navigation, Map, Satellite, ZoomIn, ZoomOut, Menu, Moon, Sun, Bookmark, Shuffle, Search, Globe, ChevronRight } from 'lucide-react';
+import { Loader2, Layers, Navigation, Map, Satellite, ZoomIn, ZoomOut, Menu, Moon, Sun, Bookmark, Shuffle, Search, Globe, ChevronRight, ArrowLeft } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { Button } from '@/components/ui/button';
 import {
@@ -80,6 +80,7 @@ const MapView = () => {
   const [showBookmarks, setShowBookmarks] = useState(false);
   const [showSearch, setShowSearch] = useState(false);
   const [visibleCount, setVisibleCount] = useState(0);
+  const [showLanguageMenu, setShowLanguageMenu] = useState(false);
   
   const [selectedLanguage, setSelectedLanguage] = useState<WikiLanguage>('en');
   const fetchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -669,30 +670,15 @@ const MapView = () => {
               <Search className="w-4 h-4" />
               <span className="font-medium">Search</span>
             </DropdownMenuItem>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <div className="flex items-center gap-3 cursor-pointer text-foreground px-2 py-1.5 text-sm hover:bg-accent rounded-sm">
-                  <Globe className="w-4 h-4" />
-                  <span className="font-medium flex-1">Language</span>
-                  <span className="text-xs text-muted-foreground">{selectedLanguage.toUpperCase()}</span>
-                  <ChevronRight className="w-3 h-3 text-muted-foreground" />
-                </div>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent side="right" align="start" className="z-[2001] bg-card border-2 border-border shadow-md max-h-[300px] overflow-auto">
-                {(['en', 'es', 'fr', 'de', 'it', 'pt', 'ru', 'ja', 'zh', 'ar', 'ko', 'nl', 'pl', 'sv', 'tr'] as const).map((lang) => (
-                  <DropdownMenuItem
-                    key={lang}
-                    onClick={() => {
-                      setSelectedLanguage(lang);
-                      setTimeout(() => fetchPlacesForBounds(), 100);
-                    }}
-                    className={`cursor-pointer ${selectedLanguage === lang ? 'bg-accent' : ''}`}
-                  >
-                    <span className="font-medium">{lang.toUpperCase()}</span>
-                  </DropdownMenuItem>
-                ))}
-              </DropdownMenuContent>
-            </DropdownMenu>
+            <DropdownMenuItem
+              onClick={() => setShowLanguageMenu(true)}
+              className="flex items-center gap-3 cursor-pointer text-foreground"
+            >
+              <Globe className="w-4 h-4" />
+              <span className="font-medium flex-1">Language</span>
+              <span className="text-xs text-muted-foreground">{selectedLanguage.toUpperCase()}</span>
+              <ChevronRight className="w-3 h-3 text-muted-foreground" />
+            </DropdownMenuItem>
             <DropdownMenuItem
               onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
               className="flex items-center gap-3 cursor-pointer text-foreground"
@@ -710,6 +696,38 @@ const MapView = () => {
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
+
+      {/* Language Selection Popup */}
+      {showLanguageMenu && (
+        <div className="absolute bottom-4 left-4 z-[1001] bg-card/95 backdrop-blur-md border-2 border-border shadow-lg min-w-[160px]">
+          <div className="flex items-center gap-2 px-3 py-2 border-b border-border">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setShowLanguageMenu(false)}
+              className="h-7 w-7 hover:bg-accent"
+            >
+              <ArrowLeft className="w-4 h-4" />
+            </Button>
+            <span className="font-medium text-sm text-foreground">Language</span>
+          </div>
+          <div className="max-h-[250px] overflow-auto py-1">
+            {(['en', 'es', 'fr', 'de', 'it', 'pt', 'ru', 'ja', 'zh', 'ar', 'ko', 'nl', 'pl', 'sv', 'tr'] as const).map((lang) => (
+              <button
+                key={lang}
+                onClick={() => {
+                  setSelectedLanguage(lang);
+                  setShowLanguageMenu(false);
+                  setTimeout(() => fetchPlacesForBounds(), 100);
+                }}
+                className={`w-full text-left px-4 py-2 text-sm hover:bg-accent cursor-pointer transition-colors ${selectedLanguage === lang ? 'bg-accent font-semibold' : 'text-foreground'}`}
+              >
+                {lang.toUpperCase()}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Bookmarks Panel */}
       {showBookmarks && (
