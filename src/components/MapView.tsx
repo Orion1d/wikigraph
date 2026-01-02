@@ -699,7 +699,7 @@ const MapView = () => {
 
       {/* Language Selection Popup */}
       {showLanguageMenu && (
-        <div className="absolute bottom-4 left-4 z-[1001] bg-card/95 backdrop-blur-md border-2 border-border shadow-lg min-w-[160px]">
+        <div className="absolute bottom-4 left-4 z-[1001] bg-card/95 backdrop-blur-md border-2 border-border shadow-lg w-[140px]">
           <div className="flex items-center gap-2 px-3 py-2 border-b border-border">
             <Button
               variant="ghost"
