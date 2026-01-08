@@ -82,7 +82,11 @@ const MapView = () => {
   const [visibleCount, setVisibleCount] = useState(0);
   const [showLanguageMenu, setShowLanguageMenu] = useState(false);
   
-  const [selectedLanguage, setSelectedLanguage] = useState<WikiLanguage>('en');
+  const [selectedLanguage, setSelectedLanguage] = useState<WikiLanguage>(() => {
+    const availableLanguages: WikiLanguage[] = ['en', 'es', 'fr', 'de', 'it', 'pt', 'ru', 'ja', 'zh', 'ar', 'ko', 'nl', 'pl', 'sv', 'tr'];
+    const browserLang = navigator.language?.split('-')[0]?.toLowerCase();
+    return (availableLanguages.includes(browserLang as WikiLanguage) ? browserLang : 'en') as WikiLanguage;
+  });
   const fetchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const userLocationMarkerRef = useRef<L.Marker | null>(null);
 
