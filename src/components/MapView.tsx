@@ -8,7 +8,7 @@ import { toast } from 'sonner';
 import { fetchNearbyPlaces, fetchArticleDetails, searchPlaceByName, WikiPlace, WikiArticle } from '@/lib/wikipedia';
 import WikiInfoPanel from './WikiInfoPanel';
 import SearchPanel, { WikiLanguage } from './SearchPanel';
-import { Loader2, Layers, Navigation, Map, Satellite, ZoomIn, ZoomOut, Menu, Moon, Sun, Bookmark, Shuffle, Search, Globe, ChevronRight, ArrowLeft } from 'lucide-react';
+import { Loader2, Layers, Navigation, Map, Satellite, ZoomIn, ZoomOut, Menu, Moon, Sun, Bookmark, Shuffle, Search, Globe, ChevronRight, ArrowLeft, Castle, Mountain, Landmark, Church, Trees, Compass } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { Button } from '@/components/ui/button';
 import {
@@ -81,6 +81,12 @@ const MapView = () => {
   const [showSearch, setShowSearch] = useState(false);
   const [visibleCount, setVisibleCount] = useState(0);
   const [showLanguageMenu, setShowLanguageMenu] = useState(false);
+  const [showDiscoveryMenu, setShowDiscoveryMenu] = useState(false);
+  const [hoveredArticle, setHoveredArticle] = useState<WikiArticle | null>(null);
+  const [hoverPosition, setHoverPosition] = useState<{ x: number; y: number } | null>(null);
+  const [isLoadingHover, setIsLoadingHover] = useState(false);
+  const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const hoverCacheRef = useRef<globalThis.Map<number, WikiArticle>>(new globalThis.Map());
   
   const [selectedLanguage, setSelectedLanguage] = useState<WikiLanguage>(() => {
     const availableLanguages: WikiLanguage[] = ['en', 'es', 'fr', 'de', 'it', 'pt', 'ru', 'ja', 'zh', 'ar', 'ko', 'nl', 'pl', 'sv', 'tr'];
@@ -270,133 +276,181 @@ const MapView = () => {
     mapRef.current.zoomOut();
   };
 
-  // Interesting locations around the world for random discovery
-  const DISCOVERY_LOCATIONS = [
-    { name: 'Rome, Italy', lat: 41.9028, lon: 12.4964 },
-    { name: 'Tokyo, Japan', lat: 35.6762, lon: 139.6503 },
-    { name: 'New York, USA', lat: 40.7128, lon: -74.0060 },
-    { name: 'Cairo, Egypt', lat: 30.0444, lon: 31.2357 },
-    { name: 'Sydney, Australia', lat: -33.8688, lon: 151.2093 },
-    { name: 'Machu Picchu, Peru', lat: -13.1631, lon: -72.5450 },
-    { name: 'Athens, Greece', lat: 37.9838, lon: 23.7275 },
-    { name: 'Kyoto, Japan', lat: 35.0116, lon: 135.7681 },
-    { name: 'Barcelona, Spain', lat: 41.3851, lon: 2.1734 },
-    { name: 'Istanbul, Turkey', lat: 41.0082, lon: 28.9784 },
-    { name: 'Petra, Jordan', lat: 30.3285, lon: 35.4444 },
-    { name: 'Angkor Wat, Cambodia', lat: 13.4125, lon: 103.8670 },
-    { name: 'Marrakech, Morocco', lat: 31.6295, lon: -7.9811 },
-    { name: 'Prague, Czech Republic', lat: 50.0755, lon: 14.4378 },
-    { name: 'Vienna, Austria', lat: 48.2082, lon: 16.3738 },
-    { name: 'Lisbon, Portugal', lat: 38.7223, lon: -9.1393 },
-    { name: 'Amsterdam, Netherlands', lat: 52.3676, lon: 4.9041 },
-    { name: 'St. Petersburg, Russia', lat: 59.9343, lon: 30.3351 },
-    { name: 'Buenos Aires, Argentina', lat: -34.6037, lon: -58.3816 },
-    { name: 'Mexico City, Mexico', lat: 19.4326, lon: -99.1332 },
-    { name: 'Delhi, India', lat: 28.6139, lon: 77.2090 },
-    { name: 'Beijing, China', lat: 39.9042, lon: 116.4074 },
-    { name: 'Cape Town, South Africa', lat: -33.9249, lon: 18.4241 },
-    { name: 'Havana, Cuba', lat: 23.1136, lon: -82.3666 },
-    { name: 'Paris, France', lat: 48.8566, lon: 2.3522 },
-    { name: 'London, UK', lat: 51.5074, lon: -0.1278 },
-    { name: 'Berlin, Germany', lat: 52.5200, lon: 13.4050 },
-    { name: 'Munich, Germany', lat: 48.1351, lon: 11.5820 },
-    { name: 'Florence, Italy', lat: 43.7696, lon: 11.2558 },
-    { name: 'Venice, Italy', lat: 45.4408, lon: 12.3155 },
-    { name: 'Naples, Italy', lat: 40.8518, lon: 14.2681 },
-    { name: 'Milan, Italy', lat: 45.4642, lon: 9.1900 },
-    { name: 'Dublin, Ireland', lat: 53.3498, lon: -6.2603 },
-    { name: 'Edinburgh, Scotland', lat: 55.9533, lon: -3.1883 },
-    { name: 'Stockholm, Sweden', lat: 59.3293, lon: 18.0686 },
-    { name: 'Copenhagen, Denmark', lat: 55.6761, lon: 12.5683 },
-    { name: 'Oslo, Norway', lat: 59.9139, lon: 10.7522 },
-    { name: 'Helsinki, Finland', lat: 60.1699, lon: 24.9384 },
-    { name: 'Reykjavik, Iceland', lat: 64.1466, lon: -21.9426 },
-    { name: 'Brussels, Belgium', lat: 50.8503, lon: 4.3517 },
-    { name: 'Zurich, Switzerland', lat: 47.3769, lon: 8.5417 },
-    { name: 'Geneva, Switzerland', lat: 46.2044, lon: 6.1432 },
-    { name: 'Budapest, Hungary', lat: 47.4979, lon: 19.0402 },
-    { name: 'Warsaw, Poland', lat: 52.2297, lon: 21.0122 },
-    { name: 'Krakow, Poland', lat: 50.0647, lon: 19.9450 },
-    { name: 'Dubrovnik, Croatia', lat: 42.6507, lon: 18.0944 },
-    { name: 'Santorini, Greece', lat: 36.3932, lon: 25.4615 },
-    { name: 'Dubai, UAE', lat: 25.2048, lon: 55.2708 },
-    { name: 'Singapore', lat: 1.3521, lon: 103.8198 },
-    { name: 'Hong Kong', lat: 22.3193, lon: 114.1694 },
-    { name: 'Seoul, South Korea', lat: 37.5665, lon: 126.9780 },
-    { name: 'Taipei, Taiwan', lat: 25.0330, lon: 121.5654 },
-    { name: 'Bangkok, Thailand', lat: 13.7563, lon: 100.5018 },
-    { name: 'Hanoi, Vietnam', lat: 21.0285, lon: 105.8542 },
-    { name: 'Bali, Indonesia', lat: -8.3405, lon: 115.0920 },
-    { name: 'Kuala Lumpur, Malaysia', lat: 3.1390, lon: 101.6869 },
-    { name: 'Manila, Philippines', lat: 14.5995, lon: 120.9842 },
-    { name: 'Mumbai, India', lat: 19.0760, lon: 72.8777 },
-    { name: 'Jaipur, India', lat: 26.9124, lon: 75.7873 },
-    { name: 'Kathmandu, Nepal', lat: 27.7172, lon: 85.3240 },
-    { name: 'Shanghai, China', lat: 31.2304, lon: 121.4737 },
-    { name: 'Xi\'an, China', lat: 34.3416, lon: 108.9398 },
-    { name: 'Osaka, Japan', lat: 34.6937, lon: 135.5023 },
-    { name: 'Hiroshima, Japan', lat: 34.3853, lon: 132.4553 },
-    { name: 'Auckland, New Zealand', lat: -36.8509, lon: 174.7645 },
-    { name: 'Queenstown, New Zealand', lat: -45.0312, lon: 168.6626 },
-    { name: 'Melbourne, Australia', lat: -37.8136, lon: 144.9631 },
-    { name: 'Perth, Australia', lat: -31.9505, lon: 115.8605 },
-    { name: 'Fiji', lat: -17.7134, lon: 178.0650 },
-    { name: 'Tahiti, French Polynesia', lat: -17.6509, lon: -149.4260 },
-    { name: 'Casablanca, Morocco', lat: 33.5731, lon: -7.5898 },
-    { name: 'Fez, Morocco', lat: 34.0181, lon: -5.0078 },
-    { name: 'Luxor, Egypt', lat: 25.6872, lon: 32.6396 },
-    { name: 'Nairobi, Kenya', lat: -1.2921, lon: 36.8219 },
-    { name: 'Zanzibar, Tanzania', lat: -6.1659, lon: 39.2026 },
-    { name: 'Victoria Falls, Zimbabwe', lat: -17.9243, lon: 25.8572 },
-    { name: 'Johannesburg, South Africa', lat: -26.2041, lon: 28.0473 },
-    { name: 'Essaouira, Morocco', lat: 31.5125, lon: -9.7700 },
-    { name: 'Toronto, Canada', lat: 43.6532, lon: -79.3832 },
-    { name: 'Vancouver, Canada', lat: 49.2827, lon: -123.1207 },
-    { name: 'Montreal, Canada', lat: 45.5017, lon: -73.5673 },
-    { name: 'Los Angeles, USA', lat: 34.0522, lon: -118.2437 },
-    { name: 'San Francisco, USA', lat: 37.7749, lon: -122.4194 },
-    { name: 'Chicago, USA', lat: 41.8781, lon: -87.6298 },
-    { name: 'Miami, USA', lat: 25.7617, lon: -80.1918 },
-    { name: 'New Orleans, USA', lat: 29.9511, lon: -90.0715 },
-    { name: 'Washington DC, USA', lat: 38.9072, lon: -77.0369 },
-    { name: 'Boston, USA', lat: 42.3601, lon: -71.0589 },
-    { name: 'Cusco, Peru', lat: -13.5319, lon: -71.9675 },
-    { name: 'Rio de Janeiro, Brazil', lat: -22.9068, lon: -43.1729 },
-    { name: 'Cartagena, Colombia', lat: 10.3910, lon: -75.4794 },
-    { name: 'Santiago, Chile', lat: -33.4489, lon: -70.6693 },
-    { name: 'Montevideo, Uruguay', lat: -34.9011, lon: -56.1645 },
-    { name: 'Bogota, Colombia', lat: 4.7110, lon: -74.0721 },
-    { name: 'Lima, Peru', lat: -12.0464, lon: -77.0428 },
-    { name: 'Quito, Ecuador', lat: -0.1807, lon: -78.4678 },
-    { name: 'Galapagos Islands, Ecuador', lat: -0.9538, lon: -90.9656 },
-    { name: 'Patagonia, Argentina', lat: -41.8101, lon: -68.9063 },
-    { name: 'Seville, Spain', lat: 37.3891, lon: -5.9845 },
-  ];
+  // Discovery themes with categorized locations
+  type DiscoveryTheme = 'random' | 'castles' | 'ruins' | 'nature' | 'religious' | 'landmarks';
+
+  const DISCOVERY_THEMES: Record<DiscoveryTheme, { name: string; icon: React.ReactNode; locations: { name: string; lat: number; lon: number }[] }> = {
+    random: {
+      name: 'Random',
+      icon: <Shuffle className="w-4 h-4" />,
+      locations: [
+        { name: 'Rome, Italy', lat: 41.9028, lon: 12.4964 },
+        { name: 'Tokyo, Japan', lat: 35.6762, lon: 139.6503 },
+        { name: 'New York, USA', lat: 40.7128, lon: -74.0060 },
+        { name: 'Cairo, Egypt', lat: 30.0444, lon: 31.2357 },
+        { name: 'Sydney, Australia', lat: -33.8688, lon: 151.2093 },
+        { name: 'Paris, France', lat: 48.8566, lon: 2.3522 },
+        { name: 'London, UK', lat: 51.5074, lon: -0.1278 },
+        { name: 'Barcelona, Spain', lat: 41.3851, lon: 2.1734 },
+        { name: 'Istanbul, Turkey', lat: 41.0082, lon: 28.9784 },
+        { name: 'Kyoto, Japan', lat: 35.0116, lon: 135.7681 },
+        { name: 'Prague, Czech Republic', lat: 50.0755, lon: 14.4378 },
+        { name: 'Vienna, Austria', lat: 48.2082, lon: 16.3738 },
+        { name: 'Amsterdam, Netherlands', lat: 52.3676, lon: 4.9041 },
+        { name: 'Berlin, Germany', lat: 52.5200, lon: 13.4050 },
+        { name: 'Singapore', lat: 1.3521, lon: 103.8198 },
+      ],
+    },
+    castles: {
+      name: 'Castles',
+      icon: <Castle className="w-4 h-4" />,
+      locations: [
+        { name: 'Neuschwanstein Castle, Germany', lat: 47.5576, lon: 10.7498 },
+        { name: 'Edinburgh Castle, Scotland', lat: 55.9486, lon: -3.1999 },
+        { name: 'Prague Castle, Czech Republic', lat: 50.0909, lon: 14.4010 },
+        { name: 'Windsor Castle, UK', lat: 51.4839, lon: -0.6044 },
+        { name: 'Château de Chambord, France', lat: 47.6162, lon: 1.5170 },
+        { name: 'Alhambra, Spain', lat: 37.1760, lon: -3.5881 },
+        { name: 'Bran Castle, Romania', lat: 45.5150, lon: 25.3672 },
+        { name: 'Warwick Castle, UK', lat: 52.2795, lon: -1.5849 },
+        { name: 'Hohenzollern Castle, Germany', lat: 48.3232, lon: 8.9673 },
+        { name: 'Château de Versailles, France', lat: 48.8049, lon: 2.1204 },
+      ],
+    },
+    ruins: {
+      name: 'Ancient Ruins',
+      icon: <Landmark className="w-4 h-4" />,
+      locations: [
+        { name: 'Machu Picchu, Peru', lat: -13.1631, lon: -72.5450 },
+        { name: 'Colosseum, Rome', lat: 41.8902, lon: 12.4922 },
+        { name: 'Petra, Jordan', lat: 30.3285, lon: 35.4444 },
+        { name: 'Angkor Wat, Cambodia', lat: 13.4125, lon: 103.8670 },
+        { name: 'Chichen Itza, Mexico', lat: 20.6843, lon: -88.5678 },
+        { name: 'Acropolis, Athens', lat: 37.9715, lon: 23.7257 },
+        { name: 'Pompeii, Italy', lat: 40.7462, lon: 14.4989 },
+        { name: 'Ephesus, Turkey', lat: 37.9490, lon: 27.3680 },
+        { name: 'Great Wall, China', lat: 40.4319, lon: 116.5704 },
+        { name: 'Teotihuacan, Mexico', lat: 19.6925, lon: -98.8438 },
+      ],
+    },
+    nature: {
+      name: 'Nature Wonders',
+      icon: <Mountain className="w-4 h-4" />,
+      locations: [
+        { name: 'Grand Canyon, USA', lat: 36.1069, lon: -112.1129 },
+        { name: 'Victoria Falls, Zimbabwe', lat: -17.9243, lon: 25.8572 },
+        { name: 'Niagara Falls, Canada', lat: 43.0962, lon: -79.0377 },
+        { name: 'Yosemite, USA', lat: 37.8651, lon: -119.5383 },
+        { name: 'Galápagos Islands, Ecuador', lat: -0.9538, lon: -90.9656 },
+        { name: 'Ha Long Bay, Vietnam', lat: 20.9101, lon: 107.1839 },
+        { name: 'Plitvice Lakes, Croatia', lat: 44.8654, lon: 15.5820 },
+        { name: 'Yellowstone, USA', lat: 44.4280, lon: -110.5885 },
+        { name: 'Swiss Alps, Switzerland', lat: 46.5197, lon: 7.9596 },
+        { name: 'Zhangjiajie, China', lat: 29.3177, lon: 110.4343 },
+      ],
+    },
+    religious: {
+      name: 'Sacred Sites',
+      icon: <Church className="w-4 h-4" />,
+      locations: [
+        { name: 'Vatican City', lat: 41.9029, lon: 12.4534 },
+        { name: 'Notre-Dame, Paris', lat: 48.8530, lon: 2.3499 },
+        { name: 'Hagia Sophia, Istanbul', lat: 41.0086, lon: 28.9802 },
+        { name: 'Sagrada Familia, Barcelona', lat: 41.4036, lon: 2.1744 },
+        { name: 'Blue Mosque, Istanbul', lat: 41.0054, lon: 28.9768 },
+        { name: 'Golden Temple, India', lat: 31.6200, lon: 74.8765 },
+        { name: 'Wat Phra Kaew, Bangkok', lat: 13.7516, lon: 100.4927 },
+        { name: 'St. Peter\'s Basilica, Vatican', lat: 41.9022, lon: 12.4539 },
+        { name: 'Sensoji Temple, Tokyo', lat: 35.7148, lon: 139.7967 },
+        { name: 'Westminster Abbey, London', lat: 51.4994, lon: -0.1273 },
+      ],
+    },
+    landmarks: {
+      name: 'Famous Landmarks',
+      icon: <Trees className="w-4 h-4" />,
+      locations: [
+        { name: 'Eiffel Tower, Paris', lat: 48.8584, lon: 2.2945 },
+        { name: 'Statue of Liberty, USA', lat: 40.6892, lon: -74.0445 },
+        { name: 'Big Ben, London', lat: 51.5007, lon: -0.1246 },
+        { name: 'Sydney Opera House', lat: -33.8568, lon: 151.2153 },
+        { name: 'Taj Mahal, India', lat: 27.1751, lon: 78.0421 },
+        { name: 'Christ the Redeemer, Brazil', lat: -22.9519, lon: -43.2105 },
+        { name: 'Burj Khalifa, Dubai', lat: 25.1972, lon: 55.2744 },
+        { name: 'Tower Bridge, London', lat: 51.5055, lon: -0.0754 },
+        { name: 'Golden Gate Bridge, USA', lat: 37.8199, lon: -122.4783 },
+        { name: 'Leaning Tower of Pisa, Italy', lat: 43.7230, lon: 10.3966 },
+      ],
+    },
+  };
 
   // Track last 10 visited locations to avoid repeats
-  const discoveryHistoryRef = useRef<number[]>([]);
+  const discoveryHistoryRef = useRef<globalThis.Map<DiscoveryTheme, number[]>>(new globalThis.Map());
 
-  const handleRandomDiscover = () => {
+  const handleThemedDiscover = (theme: DiscoveryTheme) => {
     if (!mapRef.current) return;
     
-    // Filter out recently visited locations
-    const availableIndices = DISCOVERY_LOCATIONS.map((_, i) => i)
-      .filter(i => !discoveryHistoryRef.current.includes(i));
+    const locations = DISCOVERY_THEMES[theme].locations;
+    const history = discoveryHistoryRef.current.get(theme) || [];
     
-    // If all locations have been visited recently, reset history
+    // Filter out recently visited locations
+    const availableIndices = locations.map((_, i) => i)
+      .filter(i => !history.includes(i));
+    
+    // If all locations have been visited recently, reset history for this theme
     const indicesToChooseFrom = availableIndices.length > 0 
       ? availableIndices 
-      : DISCOVERY_LOCATIONS.map((_, i) => i);
+      : locations.map((_, i) => i);
     
     const randomIndex = indicesToChooseFrom[Math.floor(Math.random() * indicesToChooseFrom.length)];
-    const location = DISCOVERY_LOCATIONS[randomIndex];
+    const location = locations[randomIndex];
     
-    // Add to history and keep only last 10
-    discoveryHistoryRef.current = [...discoveryHistoryRef.current, randomIndex].slice(-10);
+    // Add to history and keep only last 5 per theme
+    const newHistory = [...history, randomIndex].slice(-5);
+    discoveryHistoryRef.current.set(theme, newHistory);
     
     mapRef.current.flyTo([location.lat, location.lon], 14, { duration: 2 });
-    toast.success(`Exploring ${location.name}`);
+    toast.success(`${DISCOVERY_THEMES[theme].name}: ${location.name}`);
+    setShowDiscoveryMenu(false);
   };
+
+  const handleRandomDiscover = () => handleThemedDiscover('random');
+
+  // Handle marker hover for quick facts
+  const handleMarkerHover = useCallback(async (place: WikiPlace, e: L.LeafletMouseEvent) => {
+    // Clear any pending timeout
+    if (hoverTimeoutRef.current) {
+      clearTimeout(hoverTimeoutRef.current);
+    }
+
+    // Set position immediately
+    setHoverPosition({ x: e.originalEvent.clientX, y: e.originalEvent.clientY });
+
+    // Check cache first
+    if (hoverCacheRef.current.has(place.pageid)) {
+      setHoveredArticle(hoverCacheRef.current.get(place.pageid)!);
+      return;
+    }
+
+    // Delay fetching to avoid excessive API calls
+    hoverTimeoutRef.current = setTimeout(async () => {
+      setIsLoadingHover(true);
+      const article = await fetchArticleDetails(place.pageid, selectedLanguage);
+      if (article) {
+        hoverCacheRef.current.set(place.pageid, article);
+        setHoveredArticle(article);
+      }
+      setIsLoadingHover(false);
+    }, 300);
+  }, [selectedLanguage]);
+
+  const handleMarkerHoverEnd = useCallback(() => {
+    if (hoverTimeoutRef.current) {
+      clearTimeout(hoverTimeoutRef.current);
+    }
+    setHoveredArticle(null);
+    setHoverPosition(null);
+    setIsLoadingHover(false);
+  }, []);
 
   // Initialize map
   useEffect(() => {
@@ -512,25 +566,21 @@ const MapView = () => {
     };
 
     places.forEach((place) => {
-      const isSelected = selectedPlace?.pageid === place.pageid;
       const lonForView = wrapLonToCenter(place.lon, centerLng);
 
       const marker = L.marker([place.lat, lonForView], {
         icon: createMarkerIcon(),
       });
 
-      marker.bindPopup(`
-        <div style="font-family: var(--font-sans); padding: 4px;">
-          <strong style="font-size: 14px;">${place.title}</strong>
-        </div>
-      `);
       marker.on('click', () => handleMarkerClick(place));
+      marker.on('mouseover', (e) => handleMarkerHover(place, e));
+      marker.on('mouseout', handleMarkerHoverEnd);
 
       markersLayerRef.current?.addLayer(marker);
     });
 
     updateVisibleCount();
-  }, [places, selectedPlace, updateVisibleCount]);
+  }, [places, selectedPlace, updateVisibleCount, handleMarkerHover, handleMarkerHoverEnd]);
 
   const getLayerIcon = (layer: MapLayer) => {
     switch (layer) {
@@ -642,16 +692,31 @@ const MapView = () => {
           )}
         </Button>
 
-        {/* Random Discover Button */}
-        <Button 
-          variant="secondary"
-          size="icon"
-          className="h-10 w-10 bg-primary backdrop-blur-md border-2 border-border shadow-sm hover:bg-primary/90"
-          onClick={handleRandomDiscover}
-          title="Discover a random place"
-        >
-          <Shuffle className="w-4 h-4 text-primary-foreground" />
-        </Button>
+        {/* Random Discover Button with theme dropdown */}
+        <DropdownMenu open={showDiscoveryMenu} onOpenChange={setShowDiscoveryMenu}>
+          <DropdownMenuTrigger asChild>
+            <Button 
+              variant="secondary"
+              size="icon"
+              className="h-10 w-10 bg-primary backdrop-blur-md border-2 border-border shadow-sm hover:bg-primary/90"
+              title="Discover places"
+            >
+              <Compass className="w-4 h-4 text-primary-foreground" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" side="top" className="z-[2000] bg-card border-2 border-border shadow-md min-w-[160px]">
+            {(Object.keys(DISCOVERY_THEMES) as DiscoveryTheme[]).map((theme) => (
+              <DropdownMenuItem
+                key={theme}
+                onClick={() => handleThemedDiscover(theme)}
+                className="flex items-center gap-3 cursor-pointer"
+              >
+                {DISCOVERY_THEMES[theme].icon}
+                <span className="font-medium">{DISCOVERY_THEMES[theme].name}</span>
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
 
       {/* Menu Button */}
@@ -769,6 +834,47 @@ const MapView = () => {
                 </div>
               ))
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Quick Facts Hover Card */}
+      {(hoveredArticle || isLoadingHover) && hoverPosition && (
+        <div 
+          className="fixed z-[2000] pointer-events-none animate-scale-in"
+          style={{
+            left: Math.min(hoverPosition.x + 15, window.innerWidth - 280),
+            top: Math.max(hoverPosition.y - 100, 10),
+          }}
+        >
+          <div className="bg-card/95 backdrop-blur-md border-2 border-border shadow-lg w-[260px] overflow-hidden">
+            {isLoadingHover && !hoveredArticle ? (
+              <div className="p-4 flex items-center gap-3">
+                <Loader2 className="w-4 h-4 animate-spin text-primary" />
+                <span className="text-sm text-muted-foreground">Loading...</span>
+              </div>
+            ) : hoveredArticle ? (
+              <>
+                {hoveredArticle.thumbnail && (
+                  <img 
+                    src={hoveredArticle.thumbnail.source} 
+                    alt={hoveredArticle.title}
+                    className="w-full h-28 object-cover"
+                  />
+                )}
+                <div className="p-3">
+                  <h4 className="font-semibold text-card-foreground text-sm line-clamp-1">
+                    {hoveredArticle.title}
+                  </h4>
+                  <p className="text-xs text-muted-foreground mt-1.5 line-clamp-3">
+                    {hoveredArticle.extract}
+                  </p>
+                  <p className="text-[10px] text-primary mt-2 font-medium">
+                    Click for details →
+                  </p>
+                </div>
+              </>
+            ) : null}
           </div>
         </div>
       )}
