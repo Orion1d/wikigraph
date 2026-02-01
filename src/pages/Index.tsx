@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import MapView from '@/components/MapView';
+import OfflineIndicator from '@/components/OfflineIndicator';
 import wikiGraphLogo from '@/assets/WikiGraph.png';
-
 const Index = () => {
   const [showSplash, setShowSplash] = useState(true);
 
@@ -37,6 +37,7 @@ const Index = () => {
 
   return (
     <div className="h-screen w-screen overflow-hidden">
+      <OfflineIndicator />
       <MapView />
     </div>
   );
