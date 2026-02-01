@@ -5,10 +5,10 @@ import 'leaflet.markercluster';
 import 'leaflet.markercluster/dist/MarkerCluster.css';
 import 'leaflet.markercluster/dist/MarkerCluster.Default.css';
 import { toast } from 'sonner';
-import { fetchNearbyPlaces, fetchArticleDetails, searchPlaceByName, WikiPlace, WikiArticle } from '@/lib/wikipedia';
+import { fetchArticleDetails, searchPlaceByName, WikiPlace, WikiArticle } from '@/lib/wikipedia';
 import WikiInfoPanel from './WikiInfoPanel';
 import SearchPanel, { WikiLanguage } from './SearchPanel';
-import { Loader2, Layers, Navigation, Map, Satellite, ZoomIn, ZoomOut, Menu, Moon, Sun, Bookmark, Shuffle, Search, Globe, ChevronRight, ArrowLeft, Castle, Mountain, Landmark, Church, Trees, Compass } from 'lucide-react';
+import { Loader2, Layers, Navigation, Map, Satellite, ZoomIn, ZoomOut, Menu, Moon, Sun, Bookmark, Search, Globe, ChevronRight, ArrowLeft, Compass } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { Button } from '@/components/ui/button';
 import {
@@ -18,118 +18,77 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 
-type MapLayer = 'standard' | 'satellite' | 'topo';
+import { useBookmarks } from '@/hooks/useBookmarks';
+import { useHoverPreview } from '@/hooks/useHoverPreview';
+import { useMapPlaces } from '@/hooks/useMapPlaces';
+import { useDiscovery } from '@/hooks/useDiscovery';
+import { 
+  TILE_LAYERS, 
+  DISCOVERY_THEMES, 
+  AVAILABLE_LANGUAGES,
+  type MapLayer, 
+  type DiscoveryTheme 
+} from '@/lib/mapConstants';
 
-type TileLayerDef = {
-  url: string;
-  attribution: string;
-  name: string;
-  options?: L.TileLayerOptions;
+const getInitialLanguage = (): WikiLanguage => {
+  const browserLang = navigator.language?.split('-')[0]?.toLowerCase();
+  return (AVAILABLE_LANGUAGES as readonly string[]).includes(browserLang) 
+    ? (browserLang as WikiLanguage) 
+    : 'en';
 };
-
-const TILE_LAYERS: Record<MapLayer, TileLayerDef> = {
-  standard: {
-    url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
-    attribution: '&copy; OpenStreetMap',
-    name: 'Standard',
-    options: { maxZoom: 19, maxNativeZoom: 19, subdomains: 'abc' },
-  },
-  satellite: {
-    url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-    attribution: 'Tiles &copy; Esri',
-    name: 'Satellite',
-    options: { maxZoom: 19, maxNativeZoom: 19 },
-  },
-  topo: {
-    url: 'https://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png',
-    attribution: '&copy; HOT OSM',
-    name: 'Detailed',
-    options: { maxZoom: 19, maxNativeZoom: 19, subdomains: 'abc' },
-  },
-};
-
-// Minimum zoom level to enable scanning (below this = too far)
-const MIN_SCAN_ZOOM = 11;
-
-export interface BookmarkedPlace {
-  pageid: number;
-  title: string;
-  lat: number;
-  lon: number;
-  savedAt: number;
-}
 
 const MapView = () => {
+  // Refs
   const mapRef = useRef<L.Map | null>(null);
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const markersLayerRef = useRef<L.MarkerClusterGroup | null>(null);
   const tileLayerRef = useRef<L.TileLayer | null>(null);
+  const userLocationMarkerRef = useRef<L.Marker | null>(null);
+
+  // Theme
   const { theme, setTheme } = useTheme();
-  
-  const [places, setPlaces] = useState<WikiPlace[]>([]);
+
+  // Core state
   const [selectedPlace, setSelectedPlace] = useState<WikiPlace | null>(null);
   const [selectedArticle, setSelectedArticle] = useState<WikiArticle | null>(null);
-  const [isLoadingPlaces, setIsLoadingPlaces] = useState(false);
   const [isLoadingArticle, setIsLoadingArticle] = useState(false);
   const [isPanelOpen, setIsPanelOpen] = useState(false);
   const [currentLayer, setCurrentLayer] = useState<MapLayer>('standard');
   const [isLocating, setIsLocating] = useState(false);
   const [zoomLevel, setZoomLevel] = useState(13);
-  const [isScanDisabled, setIsScanDisabled] = useState(false);
-  const [bookmarks, setBookmarks] = useState<BookmarkedPlace[]>([]);
+  const [selectedLanguage, setSelectedLanguage] = useState<WikiLanguage>(getInitialLanguage);
+
+  // UI state
   const [showBookmarks, setShowBookmarks] = useState(false);
   const [showSearch, setShowSearch] = useState(false);
-  const [visibleCount, setVisibleCount] = useState(0);
   const [showLanguageMenu, setShowLanguageMenu] = useState(false);
   const [showDiscoveryMenu, setShowDiscoveryMenu] = useState(false);
-  const [hoveredArticle, setHoveredArticle] = useState<WikiArticle | null>(null);
-  const [hoverPosition, setHoverPosition] = useState<{ x: number; y: number } | null>(null);
-  const [isLoadingHover, setIsLoadingHover] = useState(false);
-  const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const hoverCacheRef = useRef<globalThis.Map<number, WikiArticle>>(new globalThis.Map());
-  
-  const [selectedLanguage, setSelectedLanguage] = useState<WikiLanguage>(() => {
-    const availableLanguages: WikiLanguage[] = ['en', 'es', 'fr', 'de', 'it', 'pt', 'ru', 'ja', 'zh', 'ar', 'ko', 'nl', 'pl', 'sv', 'tr'];
-    const browserLang = navigator.language?.split('-')[0]?.toLowerCase();
-    return (availableLanguages.includes(browserLang as WikiLanguage) ? browserLang : 'en') as WikiLanguage;
-  });
-  const fetchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const userLocationMarkerRef = useRef<L.Marker | null>(null);
 
-  // Load bookmarks from localStorage
-  useEffect(() => {
-    const saved = localStorage.getItem('wiki-bookmarks');
-    if (saved) {
-      setBookmarks(JSON.parse(saved));
-    }
-  }, []);
+  // Custom hooks
+  const { bookmarks, toggleBookmark, isBookmarked } = useBookmarks();
+  const { 
+    hoveredArticle, 
+    hoverPosition, 
+    isLoadingHover, 
+    handleMarkerHover, 
+    handleMarkerHoverEnd 
+  } = useHoverPreview(selectedLanguage);
+  const { 
+    places, 
+    isLoadingPlaces, 
+    isScanDisabled, 
+    visibleCount, 
+    fetchPlacesForBounds, 
+    triggerImmediateFetch,
+    updateVisibleCount 
+  } = useMapPlaces(mapRef, markersLayerRef, selectedLanguage);
+  const { handleThemedDiscover } = useDiscovery(mapRef);
 
-  const toggleBookmark = (place: WikiPlace) => {
-    setBookmarks(prev => {
-      const exists = prev.find(b => b.pageid === place.pageid);
-      let updated: BookmarkedPlace[];
-      if (exists) {
-        updated = prev.filter(b => b.pageid !== place.pageid);
-        toast.success('Bookmark removed');
-      } else {
-        updated = [...prev, { pageid: place.pageid, title: place.title, lat: place.lat, lon: place.lon, savedAt: Date.now() }];
-        toast.success('Bookmark added');
-      }
-      localStorage.setItem('wiki-bookmarks', JSON.stringify(updated));
-      return updated;
-    });
-  };
+  // Article fetch abort controller
+  const articleAbortRef = useRef<AbortController | null>(null);
 
-  const isBookmarked = (pageid: number) => bookmarks.some(b => b.pageid === pageid);
-
-  const flyToBookmark = (bookmark: BookmarkedPlace) => {
-    if (mapRef.current) {
-      mapRef.current.flyTo([bookmark.lat, bookmark.lon], 15);
-      setShowBookmarks(false);
-    }
-  };
-
-  const createMarkerIcon = () => {
+  // Marker icon creator
+  const createMarkerIcon = useCallback(() => {
     return L.divIcon({
       className: 'custom-marker',
       html: `
@@ -141,316 +100,123 @@ const MapView = () => {
       iconSize: [28, 28],
       iconAnchor: [14, 28],
     });
-  };
-
-  const calculateRadius = (bounds: L.LatLngBounds) => {
-    const ne = bounds.getNorthEast();
-    const sw = bounds.getSouthWest();
-    const distance = ne.distanceTo(sw) / 2;
-    return Math.min(Math.max(distance, 8000), 10000);
-  };
-
-  const updateVisibleCount = useCallback(() => {
-    const map = mapRef.current;
-    const group = markersLayerRef.current;
-    if (!map || !group) {
-      setVisibleCount(0);
-      return;
-    }
-
-    const bounds = map.getBounds();
-    let count = 0;
-
-    group.eachLayer((layer: any) => {
-      // Marker
-      if (layer?.getLatLng) {
-        const ll: L.LatLng = layer.getLatLng();
-        if (bounds.contains(ll)) count += 1;
-        return;
-      }
-
-      // Cluster
-      if (layer?.getAllChildMarkers) {
-        const children: L.Marker[] = layer.getAllChildMarkers();
-        for (const m of children) {
-          const ll = m.getLatLng();
-          if (bounds.contains(ll)) count += 1;
-        }
-      }
-    });
-
-    setVisibleCount(count);
   }, []);
 
-  const fetchPlacesForBounds = useCallback(async () => {
-    if (!mapRef.current) return;
-    
-    const zoom = mapRef.current.getZoom();
-    setZoomLevel(zoom);
-    
-    // Disable scanning when zoomed out too far
-    if (zoom < MIN_SCAN_ZOOM) {
-      setIsScanDisabled(true);
-      setPlaces([]);
-      return;
+  // Handle marker click with abort support
+  const handleMarkerClick = useCallback(async (place: WikiPlace) => {
+    // Abort any pending article fetch
+    if (articleAbortRef.current) {
+      articleAbortRef.current.abort();
     }
-    
-    setIsScanDisabled(false);
-    const center = mapRef.current.getCenter();
-    const bounds = mapRef.current.getBounds();
-    const radius = calculateRadius(bounds);
-    
-    setIsLoadingPlaces(true);
-    const nearbyPlaces = await fetchNearbyPlaces(center.lat, center.lng, radius, selectedLanguage);
-    setPlaces(nearbyPlaces);
-    setIsLoadingPlaces(false);
-  }, [selectedLanguage]);
+    articleAbortRef.current = new AbortController();
 
-  const handleMarkerClick = async (place: WikiPlace) => {
     setSelectedPlace(place);
     setIsPanelOpen(true);
     setIsLoadingArticle(true);
-    
-    const article = await fetchArticleDetails(place.pageid, selectedLanguage);
-    setSelectedArticle(article);
-    setIsLoadingArticle(false);
-  };
+    setSelectedArticle(null);
 
-  const handleSearch = async (query: string, coords?: { lat: number; lon: number }) => {
-    if (!mapRef.current) return;
-    
+    try {
+      const article = await fetchArticleDetails(place.pageid, selectedLanguage);
+      if (!articleAbortRef.current?.signal.aborted) {
+        setSelectedArticle(article);
+      }
+    } catch (error) {
+      if (!(error instanceof Error && error.name === 'AbortError')) {
+        console.error('Error fetching article:', error);
+      }
+    } finally {
+      if (!articleAbortRef.current?.signal.aborted) {
+        setIsLoadingArticle(false);
+      }
+    }
+  }, [selectedLanguage]);
+
+  // Handle search
+  const handleSearch = useCallback(async (query: string, coords?: { lat: number; lon: number }) => {
+    const map = mapRef.current;
+    if (!map) return;
+
     if (coords) {
-      mapRef.current.flyTo([coords.lat, coords.lon], 14, { duration: 2 });
+      map.flyTo([coords.lat, coords.lon], 14, { duration: 2 });
       toast.success(`Flying to ${coords.lat.toFixed(4)}, ${coords.lon.toFixed(4)}`);
       setShowSearch(false);
       return;
     }
-    
+
     // Search by name
     const result = await searchPlaceByName(query, selectedLanguage);
     if (result) {
-      mapRef.current.flyTo([result.lat, result.lon], 14, { duration: 2 });
+      map.flyTo([result.lat, result.lon], 14, { duration: 2 });
       toast.success(`Found: ${result.title}`);
       setShowSearch(false);
     } else {
       toast.error('Place not found. Try a different search.');
     }
-  };
+  }, [selectedLanguage]);
 
-  const handleClosePanel = () => {
+  const handleClosePanel = useCallback(() => {
+    // Abort any pending fetch
+    if (articleAbortRef.current) {
+      articleAbortRef.current.abort();
+    }
     setIsPanelOpen(false);
     setSelectedPlace(null);
     setSelectedArticle(null);
-  };
+  }, []);
 
-  const changeMapLayer = (layer: MapLayer) => {
-    if (!mapRef.current || !tileLayerRef.current) return;
+  // Map layer change
+  const changeMapLayer = useCallback((layer: MapLayer) => {
+    const map = mapRef.current;
+    const tileLayer = tileLayerRef.current;
+    if (!map || !tileLayer) return;
 
-    mapRef.current.removeLayer(tileLayerRef.current);
-    tileLayerRef.current = L.tileLayer(TILE_LAYERS[layer].url, {
+    map.removeLayer(tileLayer);
+    const newLayer = L.tileLayer(TILE_LAYERS[layer].url, {
       attribution: TILE_LAYERS[layer].attribution,
       ...(TILE_LAYERS[layer].options || {}),
-    }).addTo(mapRef.current);
+    }).addTo(map);
 
-    tileLayerRef.current.on('tileerror', () => {
+    newLayer.on('tileerror', () => {
       toast.error(`Failed to load ${TILE_LAYERS[layer].name} tiles`);
     });
 
+    tileLayerRef.current = newLayer;
     setCurrentLayer(layer);
     toast.success(`${TILE_LAYERS[layer].name} view`);
-  };
+  }, []);
 
-  const handleLocateUser = () => {
+  // Location handlers
+  const handleLocateUser = useCallback(() => {
     if (!mapRef.current) return;
     setIsLocating(true);
     mapRef.current.locate({ setView: true, maxZoom: 14 });
-  };
-
-  const handleZoomIn = () => {
-    if (!mapRef.current) return;
-    mapRef.current.zoomIn();
-  };
-
-  const handleZoomOut = () => {
-    if (!mapRef.current) return;
-    mapRef.current.zoomOut();
-  };
-
-  // Discovery themes with categorized locations
-  type DiscoveryTheme = 'random' | 'castles' | 'ruins' | 'nature' | 'religious' | 'landmarks';
-
-  const DISCOVERY_THEMES: Record<DiscoveryTheme, { name: string; icon: React.ReactNode; locations: { name: string; lat: number; lon: number }[] }> = {
-    random: {
-      name: 'Random',
-      icon: <Shuffle className="w-4 h-4" />,
-      locations: [
-        { name: 'Rome, Italy', lat: 41.9028, lon: 12.4964 },
-        { name: 'Tokyo, Japan', lat: 35.6762, lon: 139.6503 },
-        { name: 'New York, USA', lat: 40.7128, lon: -74.0060 },
-        { name: 'Cairo, Egypt', lat: 30.0444, lon: 31.2357 },
-        { name: 'Sydney, Australia', lat: -33.8688, lon: 151.2093 },
-        { name: 'Paris, France', lat: 48.8566, lon: 2.3522 },
-        { name: 'London, UK', lat: 51.5074, lon: -0.1278 },
-        { name: 'Barcelona, Spain', lat: 41.3851, lon: 2.1734 },
-        { name: 'Istanbul, Turkey', lat: 41.0082, lon: 28.9784 },
-        { name: 'Kyoto, Japan', lat: 35.0116, lon: 135.7681 },
-        { name: 'Prague, Czech Republic', lat: 50.0755, lon: 14.4378 },
-        { name: 'Vienna, Austria', lat: 48.2082, lon: 16.3738 },
-        { name: 'Amsterdam, Netherlands', lat: 52.3676, lon: 4.9041 },
-        { name: 'Berlin, Germany', lat: 52.5200, lon: 13.4050 },
-        { name: 'Singapore', lat: 1.3521, lon: 103.8198 },
-      ],
-    },
-    castles: {
-      name: 'Castles',
-      icon: <Castle className="w-4 h-4" />,
-      locations: [
-        { name: 'Neuschwanstein Castle, Germany', lat: 47.5576, lon: 10.7498 },
-        { name: 'Edinburgh Castle, Scotland', lat: 55.9486, lon: -3.1999 },
-        { name: 'Prague Castle, Czech Republic', lat: 50.0909, lon: 14.4010 },
-        { name: 'Windsor Castle, UK', lat: 51.4839, lon: -0.6044 },
-        { name: 'Château de Chambord, France', lat: 47.6162, lon: 1.5170 },
-        { name: 'Alhambra, Spain', lat: 37.1760, lon: -3.5881 },
-        { name: 'Bran Castle, Romania', lat: 45.5150, lon: 25.3672 },
-        { name: 'Warwick Castle, UK', lat: 52.2795, lon: -1.5849 },
-        { name: 'Hohenzollern Castle, Germany', lat: 48.3232, lon: 8.9673 },
-        { name: 'Château de Versailles, France', lat: 48.8049, lon: 2.1204 },
-      ],
-    },
-    ruins: {
-      name: 'Ancient Ruins',
-      icon: <Landmark className="w-4 h-4" />,
-      locations: [
-        { name: 'Machu Picchu, Peru', lat: -13.1631, lon: -72.5450 },
-        { name: 'Colosseum, Rome', lat: 41.8902, lon: 12.4922 },
-        { name: 'Petra, Jordan', lat: 30.3285, lon: 35.4444 },
-        { name: 'Angkor Wat, Cambodia', lat: 13.4125, lon: 103.8670 },
-        { name: 'Chichen Itza, Mexico', lat: 20.6843, lon: -88.5678 },
-        { name: 'Acropolis, Athens', lat: 37.9715, lon: 23.7257 },
-        { name: 'Pompeii, Italy', lat: 40.7462, lon: 14.4989 },
-        { name: 'Ephesus, Turkey', lat: 37.9490, lon: 27.3680 },
-        { name: 'Great Wall, China', lat: 40.4319, lon: 116.5704 },
-        { name: 'Teotihuacan, Mexico', lat: 19.6925, lon: -98.8438 },
-      ],
-    },
-    nature: {
-      name: 'Nature Wonders',
-      icon: <Mountain className="w-4 h-4" />,
-      locations: [
-        { name: 'Grand Canyon, USA', lat: 36.1069, lon: -112.1129 },
-        { name: 'Victoria Falls, Zimbabwe', lat: -17.9243, lon: 25.8572 },
-        { name: 'Niagara Falls, Canada', lat: 43.0962, lon: -79.0377 },
-        { name: 'Yosemite, USA', lat: 37.8651, lon: -119.5383 },
-        { name: 'Galápagos Islands, Ecuador', lat: -0.9538, lon: -90.9656 },
-        { name: 'Ha Long Bay, Vietnam', lat: 20.9101, lon: 107.1839 },
-        { name: 'Plitvice Lakes, Croatia', lat: 44.8654, lon: 15.5820 },
-        { name: 'Yellowstone, USA', lat: 44.4280, lon: -110.5885 },
-        { name: 'Swiss Alps, Switzerland', lat: 46.5197, lon: 7.9596 },
-        { name: 'Zhangjiajie, China', lat: 29.3177, lon: 110.4343 },
-      ],
-    },
-    religious: {
-      name: 'Sacred Sites',
-      icon: <Church className="w-4 h-4" />,
-      locations: [
-        { name: 'Vatican City', lat: 41.9029, lon: 12.4534 },
-        { name: 'Notre-Dame, Paris', lat: 48.8530, lon: 2.3499 },
-        { name: 'Hagia Sophia, Istanbul', lat: 41.0086, lon: 28.9802 },
-        { name: 'Sagrada Familia, Barcelona', lat: 41.4036, lon: 2.1744 },
-        { name: 'Blue Mosque, Istanbul', lat: 41.0054, lon: 28.9768 },
-        { name: 'Golden Temple, India', lat: 31.6200, lon: 74.8765 },
-        { name: 'Wat Phra Kaew, Bangkok', lat: 13.7516, lon: 100.4927 },
-        { name: 'St. Peter\'s Basilica, Vatican', lat: 41.9022, lon: 12.4539 },
-        { name: 'Sensoji Temple, Tokyo', lat: 35.7148, lon: 139.7967 },
-        { name: 'Westminster Abbey, London', lat: 51.4994, lon: -0.1273 },
-      ],
-    },
-    landmarks: {
-      name: 'Famous Landmarks',
-      icon: <Trees className="w-4 h-4" />,
-      locations: [
-        { name: 'Eiffel Tower, Paris', lat: 48.8584, lon: 2.2945 },
-        { name: 'Statue of Liberty, USA', lat: 40.6892, lon: -74.0445 },
-        { name: 'Big Ben, London', lat: 51.5007, lon: -0.1246 },
-        { name: 'Sydney Opera House', lat: -33.8568, lon: 151.2153 },
-        { name: 'Taj Mahal, India', lat: 27.1751, lon: 78.0421 },
-        { name: 'Christ the Redeemer, Brazil', lat: -22.9519, lon: -43.2105 },
-        { name: 'Burj Khalifa, Dubai', lat: 25.1972, lon: 55.2744 },
-        { name: 'Tower Bridge, London', lat: 51.5055, lon: -0.0754 },
-        { name: 'Golden Gate Bridge, USA', lat: 37.8199, lon: -122.4783 },
-        { name: 'Leaning Tower of Pisa, Italy', lat: 43.7230, lon: 10.3966 },
-      ],
-    },
-  };
-
-  // Track last 10 visited locations to avoid repeats
-  const discoveryHistoryRef = useRef<globalThis.Map<DiscoveryTheme, number[]>>(new globalThis.Map());
-
-  const handleThemedDiscover = (theme: DiscoveryTheme) => {
-    if (!mapRef.current) return;
-    
-    const locations = DISCOVERY_THEMES[theme].locations;
-    const history = discoveryHistoryRef.current.get(theme) || [];
-    
-    // Filter out recently visited locations
-    const availableIndices = locations.map((_, i) => i)
-      .filter(i => !history.includes(i));
-    
-    // If all locations have been visited recently, reset history for this theme
-    const indicesToChooseFrom = availableIndices.length > 0 
-      ? availableIndices 
-      : locations.map((_, i) => i);
-    
-    const randomIndex = indicesToChooseFrom[Math.floor(Math.random() * indicesToChooseFrom.length)];
-    const location = locations[randomIndex];
-    
-    // Add to history and keep only last 5 per theme
-    const newHistory = [...history, randomIndex].slice(-5);
-    discoveryHistoryRef.current.set(theme, newHistory);
-    
-    mapRef.current.flyTo([location.lat, location.lon], 14, { duration: 2 });
-    toast.success(`${DISCOVERY_THEMES[theme].name}: ${location.name}`);
-    setShowDiscoveryMenu(false);
-  };
-
-  const handleRandomDiscover = () => handleThemedDiscover('random');
-
-  // Handle marker hover for quick facts
-  const handleMarkerHover = useCallback(async (place: WikiPlace, e: L.LeafletMouseEvent) => {
-    // Clear any pending timeout
-    if (hoverTimeoutRef.current) {
-      clearTimeout(hoverTimeoutRef.current);
-    }
-
-    // Set position immediately
-    setHoverPosition({ x: e.originalEvent.clientX, y: e.originalEvent.clientY });
-
-    // Check cache first
-    if (hoverCacheRef.current.has(place.pageid)) {
-      setHoveredArticle(hoverCacheRef.current.get(place.pageid)!);
-      return;
-    }
-
-    // Delay fetching to avoid excessive API calls
-    hoverTimeoutRef.current = setTimeout(async () => {
-      setIsLoadingHover(true);
-      const article = await fetchArticleDetails(place.pageid, selectedLanguage);
-      if (article) {
-        hoverCacheRef.current.set(place.pageid, article);
-        setHoveredArticle(article);
-      }
-      setIsLoadingHover(false);
-    }, 300);
-  }, [selectedLanguage]);
-
-  const handleMarkerHoverEnd = useCallback(() => {
-    if (hoverTimeoutRef.current) {
-      clearTimeout(hoverTimeoutRef.current);
-    }
-    setHoveredArticle(null);
-    setHoverPosition(null);
-    setIsLoadingHover(false);
   }, []);
+
+  const handleZoomIn = useCallback(() => mapRef.current?.zoomIn(), []);
+  const handleZoomOut = useCallback(() => mapRef.current?.zoomOut(), []);
+
+  // Bookmark fly-to
+  const flyToBookmark = useCallback((bookmark: { lat: number; lon: number }) => {
+    if (mapRef.current) {
+      mapRef.current.flyTo([bookmark.lat, bookmark.lon], 15);
+      setShowBookmarks(false);
+    }
+  }, []);
+
+  // Discovery handler
+  const handleDiscoveryClick = useCallback((theme: DiscoveryTheme) => {
+    if (handleThemedDiscover(theme)) {
+      setShowDiscoveryMenu(false);
+    }
+  }, [handleThemedDiscover]);
+
+  // Language change handler
+  const handleLanguageChange = useCallback((lang: WikiLanguage) => {
+    setSelectedLanguage(lang);
+    setShowLanguageMenu(false);
+    // Trigger immediate fetch with new language
+    setTimeout(() => triggerImmediateFetch(), 100);
+  }, [triggerImmediateFetch]);
 
   // Initialize map
   useEffect(() => {
@@ -459,7 +225,7 @@ const MapView = () => {
     const map = L.map(mapContainerRef.current, {
       center: [41.0082, 28.9784], // Istanbul
       zoom: 13,
-      zoomControl: false, // Use custom controls
+      zoomControl: false,
     });
 
     tileLayerRef.current = L.tileLayer(TILE_LAYERS.standard.url, {
@@ -468,7 +234,7 @@ const MapView = () => {
     }).addTo(map);
 
     tileLayerRef.current.on('tileerror', () => {
-      toast.error(`Failed to load map tiles`);
+      toast.error('Failed to load map tiles');
     });
 
     markersLayerRef.current = L.markerClusterGroup({
@@ -478,22 +244,15 @@ const MapView = () => {
       zoomToBoundsOnClick: true,
     }).addTo(map);
 
-    const triggerFetch = () => {
-      if (fetchTimeoutRef.current) {
-        clearTimeout(fetchTimeoutRef.current);
-      }
-      fetchTimeoutRef.current = setTimeout(() => {
-        fetchPlacesForBounds();
-      }, 500);
-    };
-
+    // Event listeners
     map.on('moveend', () => {
-      triggerFetch();
+      fetchPlacesForBounds();
       updateVisibleCount();
     });
+
     map.on('zoomend', () => {
       setZoomLevel(map.getZoom());
-      triggerFetch();
+      fetchPlacesForBounds();
       updateVisibleCount();
     });
 
@@ -533,7 +292,7 @@ const MapView = () => {
           iconAnchor: [13, 13],
         }),
       }).addTo(map);
-      
+
       toast.success('Location found');
     });
 
@@ -543,26 +302,34 @@ const MapView = () => {
     });
 
     mapRef.current = map;
-    fetchPlacesForBounds();
+    triggerImmediateFetch();
     updateVisibleCount();
 
+    // Cleanup
     return () => {
+      if (userLocationMarkerRef.current) {
+        userLocationMarkerRef.current.remove();
+      }
+      if (articleAbortRef.current) {
+        articleAbortRef.current.abort();
+      }
       map.remove();
       mapRef.current = null;
+      markersLayerRef.current = null;
+      tileLayerRef.current = null;
     };
-  }, [fetchPlacesForBounds]);
+  }, [fetchPlacesForBounds, updateVisibleCount, triggerImmediateFetch]);
 
   // Update markers when places change
   useEffect(() => {
-    if (!markersLayerRef.current) return;
-    markersLayerRef.current.clearLayers();
+    const markersLayer = markersLayerRef.current;
+    if (!markersLayer) return;
 
-    // Leaflet wraps the world horizontally; near the dateline the map center lng might be e.g. 191
-    // while Wikipedia returns lng in [-180, 180]. Wrap marker longitudes to the closest world copy.
+    markersLayer.clearLayers();
+
     const centerLng = mapRef.current?.getCenter().lng ?? 0;
     const wrapLonToCenter = (lon: number, center: number) => {
-      const wrapped = lon + 360 * Math.round((center - lon) / 360);
-      return wrapped;
+      return lon + 360 * Math.round((center - lon) / 360);
     };
 
     places.forEach((place) => {
@@ -573,15 +340,18 @@ const MapView = () => {
       });
 
       marker.on('click', () => handleMarkerClick(place));
-      marker.on('mouseover', (e) => handleMarkerHover(place, e));
+      marker.on('mouseover', (e) => {
+        handleMarkerHover(place, e.originalEvent.clientX, e.originalEvent.clientY);
+      });
       marker.on('mouseout', handleMarkerHoverEnd);
 
-      markersLayerRef.current?.addLayer(marker);
+      markersLayer.addLayer(marker);
     });
 
     updateVisibleCount();
-  }, [places, selectedPlace, updateVisibleCount, handleMarkerHover, handleMarkerHoverEnd]);
+  }, [places, createMarkerIcon, handleMarkerClick, handleMarkerHover, handleMarkerHoverEnd, updateVisibleCount]);
 
+  // Layer icon helper
   const getLayerIcon = (layer: MapLayer) => {
     switch (layer) {
       case 'satellite': return <Satellite className="w-4 h-4" />;
@@ -594,27 +364,25 @@ const MapView = () => {
     <div className="relative w-full h-full overflow-hidden bg-background">
       <div ref={mapContainerRef} className="w-full h-full" />
 
-      {/* Top Status Bar - Glassmorphism */}
+      {/* Top Status Bar */}
       <div className="absolute top-4 left-4 right-4 z-[1000] pointer-events-none">
         <div className="flex items-center justify-between">
           {/* Left: Status */}
           <div className="pointer-events-auto">
             {isLoadingPlaces && (
               <div className="bg-card/90 backdrop-blur-md px-4 py-2.5 border-2 border-border shadow-sm flex items-center gap-3">
-                <div className="relative">
-                  <Loader2 className="w-4 h-4 animate-spin text-primary" />
-                </div>
+                <Loader2 className="w-4 h-4 animate-spin text-primary" />
                 <span className="text-sm font-medium text-card-foreground">Scanning area...</span>
               </div>
             )}
-            
+
             {!isLoadingPlaces && isScanDisabled && (
               <div className="bg-muted/90 backdrop-blur-md px-4 py-2.5 border-2 border-border shadow-sm flex items-center gap-3">
                 <ZoomIn className="w-4 h-4 text-muted-foreground" />
                 <span className="text-sm font-medium text-muted-foreground">Zoom in to discover places</span>
               </div>
             )}
-            
+
             {!isLoadingPlaces && !isScanDisabled && (
               <div className="bg-card/90 backdrop-blur-md px-4 py-2.5 border-2 border-border shadow-sm flex items-center gap-3">
                 <div className="w-2 h-2 rounded-full bg-primary animate-pulse" />
@@ -629,9 +397,9 @@ const MapView = () => {
           <div className="pointer-events-auto">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button 
-                  variant="secondary" 
-                  size="sm" 
+                <Button
+                  variant="secondary"
+                  size="sm"
                   className="bg-card/90 backdrop-blur-md border-2 border-border shadow-sm hover:bg-card gap-2 h-10"
                 >
                   {getLayerIcon(currentLayer)}
@@ -655,20 +423,20 @@ const MapView = () => {
         </div>
       </div>
 
-      {/* Right Side Controls - Vertical Stack */}
+      {/* Right Side Controls */}
       <div className="absolute bottom-24 right-4 z-[1000] flex flex-col gap-2">
         {/* Zoom Controls */}
         <div className="bg-card/90 backdrop-blur-md border-2 border-border shadow-sm flex flex-col overflow-hidden">
-          <Button 
-            variant="ghost" 
+          <Button
+            variant="ghost"
             size="icon"
             onClick={handleZoomIn}
             className="h-10 w-10 rounded-none border-b border-border hover:bg-accent"
           >
             <ZoomIn className="w-4 h-4" />
           </Button>
-          <Button 
-            variant="ghost" 
+          <Button
+            variant="ghost"
             size="icon"
             onClick={handleZoomOut}
             className="h-10 w-10 rounded-none hover:bg-accent"
@@ -678,7 +446,7 @@ const MapView = () => {
         </div>
 
         {/* Location Button */}
-        <Button 
+        <Button
           variant="secondary"
           size="icon"
           className="h-10 w-10 bg-card/90 backdrop-blur-md border-2 border-border shadow-sm hover:bg-card"
@@ -692,10 +460,10 @@ const MapView = () => {
           )}
         </Button>
 
-        {/* Random Discover Button with theme dropdown */}
+        {/* Discovery Button */}
         <DropdownMenu open={showDiscoveryMenu} onOpenChange={setShowDiscoveryMenu}>
           <DropdownMenuTrigger asChild>
-            <Button 
+            <Button
               variant="secondary"
               size="icon"
               className="h-10 w-10 bg-primary backdrop-blur-md border-2 border-border shadow-sm hover:bg-primary/90"
@@ -705,14 +473,14 @@ const MapView = () => {
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" side="top" className="z-[2000] bg-card border-2 border-border shadow-md min-w-[160px]">
-            {(Object.keys(DISCOVERY_THEMES) as DiscoveryTheme[]).map((theme) => (
+            {(Object.keys(DISCOVERY_THEMES) as DiscoveryTheme[]).map((themeKey) => (
               <DropdownMenuItem
-                key={theme}
-                onClick={() => handleThemedDiscover(theme)}
+                key={themeKey}
+                onClick={() => handleDiscoveryClick(themeKey)}
                 className="flex items-center gap-3 cursor-pointer"
               >
-                {DISCOVERY_THEMES[theme].icon}
-                <span className="font-medium">{DISCOVERY_THEMES[theme].name}</span>
+                {DISCOVERY_THEMES[themeKey].icon}
+                <span className="font-medium">{DISCOVERY_THEMES[themeKey].name}</span>
               </DropdownMenuItem>
             ))}
           </DropdownMenuContent>
@@ -723,8 +491,8 @@ const MapView = () => {
       <div className="absolute bottom-4 left-4 z-[1000]">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button 
-              variant="secondary" 
+            <Button
+              variant="secondary"
               size="icon"
               className="h-10 w-10 bg-card/90 backdrop-blur-md border-2 border-border shadow-sm hover:bg-card"
             >
@@ -781,15 +549,13 @@ const MapView = () => {
             <span className="font-medium text-sm text-foreground">Language</span>
           </div>
           <div className="max-h-[250px] overflow-auto py-1">
-            {(['en', 'es', 'fr', 'de', 'it', 'pt', 'ru', 'ja', 'zh', 'ar', 'ko', 'nl', 'pl', 'sv', 'tr'] as const).map((lang) => (
+            {AVAILABLE_LANGUAGES.map((lang) => (
               <button
                 key={lang}
-                onClick={() => {
-                  setSelectedLanguage(lang);
-                  setShowLanguageMenu(false);
-                  setTimeout(() => fetchPlacesForBounds(), 100);
-                }}
-                className={`w-full text-left px-4 py-2 text-sm hover:bg-accent cursor-pointer transition-colors ${selectedLanguage === lang ? 'bg-accent font-semibold' : 'text-foreground'}`}
+                onClick={() => handleLanguageChange(lang)}
+                className={`w-full text-left px-4 py-2 text-sm hover:bg-accent cursor-pointer transition-colors ${
+                  selectedLanguage === lang ? 'bg-accent font-semibold' : 'text-foreground'
+                }`}
               >
                 {lang.toUpperCase()}
               </button>
@@ -821,7 +587,7 @@ const MapView = () => {
             {bookmarks.length === 0 ? (
               <p className="text-muted-foreground text-sm text-center py-8">No bookmarks yet</p>
             ) : (
-              bookmarks.map(b => (
+              bookmarks.map((b) => (
                 <div
                   key={b.pageid}
                   onClick={() => flyToBookmark(b)}
@@ -840,7 +606,7 @@ const MapView = () => {
 
       {/* Quick Facts Hover Card */}
       {(hoveredArticle || isLoadingHover) && hoverPosition && (
-        <div 
+        <div
           className="fixed z-[2000] pointer-events-none animate-scale-in"
           style={{
             left: Math.min(hoverPosition.x + 15, window.innerWidth - 280),
@@ -856,10 +622,11 @@ const MapView = () => {
             ) : hoveredArticle ? (
               <>
                 {hoveredArticle.thumbnail && (
-                  <img 
-                    src={hoveredArticle.thumbnail.source} 
+                  <img
+                    src={hoveredArticle.thumbnail.source}
                     alt={hoveredArticle.title}
                     className="w-full h-28 object-cover"
+                    loading="lazy"
                   />
                 )}
                 <div className="p-3">
