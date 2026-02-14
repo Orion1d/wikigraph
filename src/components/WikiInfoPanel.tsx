@@ -1,4 +1,4 @@
-import { X, ExternalLink, MapPin, Loader2, BookOpen, Bookmark } from 'lucide-react';
+import { X, ExternalLink, MapPin, Loader2, BookOpen, Bookmark, Navigation } from 'lucide-react';
 import { WikiArticle } from '@/lib/wikipedia';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -89,6 +89,22 @@ const WikiInfoPanel = ({ article, isLoading, onClose, onToggleBookmark, isBookma
                   <Bookmark className={`w-3.5 h-3.5 ${isBookmarked ? 'fill-current' : ''}`} />
                   <span className="text-xs">{isBookmarked ? 'Saved' : 'Save'}</span>
                 </Button>
+              )}
+              {article?.coordinates && (
+                <a
+                  href={`https://www.google.com/maps/dir/?api=1&destination=${article.coordinates.lat},${article.coordinates.lon}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-8 gap-1.5"
+                  >
+                    <Navigation className="w-3.5 h-3.5" />
+                    <span className="text-xs">Directions</span>
+                  </Button>
+                </a>
               )}
             </div>
 
