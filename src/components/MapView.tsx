@@ -189,7 +189,7 @@ const MapView = () => {
   const handleLocateUser = useCallback(() => {
     if (!mapRef.current) return;
     setIsLocating(true);
-    mapRef.current.locate({ setView: true, maxZoom: 14 });
+    mapRef.current.locate({ setView: true, maxZoom: 16 });
   }, []);
 
   const handleZoomIn = useCallback(() => mapRef.current?.zoomIn(), []);
@@ -226,6 +226,7 @@ const MapView = () => {
       center: [41.0082, 28.9784], // Istanbul
       zoom: 13,
       zoomControl: false,
+      attributionControl: false,
     });
 
     tileLayerRef.current = L.tileLayer(TILE_LAYERS.standard.url, {
