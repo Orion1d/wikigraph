@@ -22,6 +22,14 @@ export interface WikiArticle {
   fullurl: string;
 }
 
+export interface WikiImage {
+  title: string;
+  url: string;
+  thumbUrl: string;
+  width: number;
+  height: number;
+}
+
 export async function fetchNearbyPlaces(
   lat: number,
   lon: number,
@@ -30,8 +38,6 @@ export async function fetchNearbyPlaces(
 ): Promise<WikiPlace[]> {
   const safeRadius = Math.floor(Math.min(Math.max(radius, 10), 10000));
 
-  // Leaflet can return longitudes outside [-180, 180] when panning across the dateline.
-  // Wikipedia expects valid coordinates, so normalize/clamp before requesting.
   const safeLat = Math.min(90, Math.max(-90, lat));
   const safeLon = ((((lon + 180) % 360) + 360) % 360) - 180;
 
@@ -71,6 +77,41 @@ export async function fetchArticleDetails(pageid: number, language: string = 'en
   }
 }
 
+export async function fetchArticleImages(pageid: number, language: string = 'en'): Promise<WikiImage[]> {
+  const url = `https://${language}.wikipedia.org/w/api.php?action=query&pageids=${pageid}&generator=images&prop=imageinfo&iiprop=url|size|mime&iiurlwidth=800&gimlimit=20&format=json&origin=*`;
+
+  try {
+    const response = await fetch(url);
+    const data = await response.json();
+    const pages = data.query?.pages;
+
+    if (!pages) return [];
+
+    const images: WikiImage[] = [];
+    for (const page of Object.values(pages) as any[]) {
+      const info = page.imageinfo?.[0];
+      if (!info) continue;
+      // Filter out SVGs, icons, and tiny images
+      const mime: string = info.mime || '';
+      if (!mime.startsWith('image/') || mime === 'image/svg+xml') continue;
+      if (info.width < 100 || info.height < 100) continue;
+
+      images.push({
+        title: page.title?.replace('File:', '') || '',
+        url: info.url,
+        thumbUrl: info.thumburl || info.url,
+        width: info.width,
+        height: info.height,
+      });
+    }
+
+    return images;
+  } catch (error) {
+    console.error('Error fetching article images:', error);
+    return [];
+  }
+}
+
 export async function searchPlaceByName(
   query: string,
   language: string = 'en'
@@ -84,7 +125,6 @@ export async function searchPlaceByName(
     
     if (!result) return null;
     
-    // Get coordinates for the found page
     const coordUrl = `https://${language}.wikipedia.org/w/api.php?action=query&pageids=${result.pageid}&prop=coordinates&format=json&origin=*`;
     const coordResponse = await fetch(coordUrl);
     const coordData = await coordResponse.json();
