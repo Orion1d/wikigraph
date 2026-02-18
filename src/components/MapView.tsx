@@ -4,12 +4,12 @@ import 'leaflet/dist/leaflet.css';
 import 'leaflet.markercluster';
 import 'leaflet.markercluster/dist/MarkerCluster.css';
 import 'leaflet.markercluster/dist/MarkerCluster.Default.css';
-import 'leaflet.heat';
+
 import { toast } from 'sonner';
 import { fetchArticleDetails, searchPlaceByName, WikiPlace, WikiArticle } from '@/lib/wikipedia';
 import WikiInfoPanel from './WikiInfoPanel';
 import SearchPanel, { WikiLanguage } from './SearchPanel';
-import { Loader2, Layers, Navigation, Map, Satellite, ZoomIn, ZoomOut, Menu, Moon, Sun, Bookmark, Search, Globe, ChevronRight, ArrowLeft, Compass, Flame } from 'lucide-react';
+import { Loader2, Layers, Navigation, Map, Satellite, ZoomIn, ZoomOut, Menu, Moon, Sun, Bookmark, Search, Globe, ChevronRight, ArrowLeft, Compass } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { Button } from '@/components/ui/button';
 import {
@@ -45,7 +45,7 @@ const MapView = () => {
   const markersLayerRef = useRef<L.MarkerClusterGroup | null>(null);
   const tileLayerRef = useRef<L.TileLayer | null>(null);
   const userLocationMarkerRef = useRef<L.Marker | null>(null);
-  const heatLayerRef = useRef<L.HeatLayer | null>(null);
+  
 
   // Theme
   const { theme, setTheme } = useTheme();
@@ -58,7 +58,7 @@ const MapView = () => {
   const [currentLayer, setCurrentLayer] = useState<MapLayer>('standard');
   const [isLocating, setIsLocating] = useState(false);
   const [zoomLevel, setZoomLevel] = useState(13);
-  const [isHeatmapActive, setIsHeatmapActive] = useState(false);
+  
   const [selectedLanguage, setSelectedLanguage] = useState<WikiLanguage>(getInitialLanguage);
 
   // UI state
@@ -337,8 +337,6 @@ const MapView = () => {
       return lon + 360 * Math.round((center - lon) / 360);
     };
 
-    const heatPoints: L.HeatLatLngTuple[] = [];
-
     places.forEach((place) => {
       const lonForView = wrapLonToCenter(place.lon, centerLng);
 
@@ -353,40 +351,10 @@ const MapView = () => {
       marker.on('mouseout', handleMarkerHoverEnd);
 
       markersLayer.addLayer(marker);
-      heatPoints.push([place.lat, lonForView, 0.6]);
     });
 
-    // Update heatmap layer
-    if (heatLayerRef.current) {
-      map.removeLayer(heatLayerRef.current);
-      heatLayerRef.current = null;
-    }
-
-    if (isHeatmapActive && heatPoints.length > 0) {
-      heatLayerRef.current = L.heatLayer(heatPoints, {
-        radius: 30,
-        blur: 20,
-        maxZoom: 17,
-        minOpacity: 0.3,
-        gradient: {
-          0.2: '#2563eb',
-          0.4: '#06b6d4',
-          0.6: '#10b981',
-          0.8: '#f59e0b',
-          1.0: '#ef4444',
-        },
-      }).addTo(map);
-
-      // Hide markers when heatmap is active
-      markersLayer.remove();
-    } else {
-      if (!map.hasLayer(markersLayer)) {
-        markersLayer.addTo(map);
-      }
-    }
-
     updateVisibleCount();
-  }, [places, createMarkerIcon, handleMarkerClick, handleMarkerHover, handleMarkerHoverEnd, updateVisibleCount, isHeatmapActive]);
+  }, [places, createMarkerIcon, handleMarkerClick, handleMarkerHover, handleMarkerHoverEnd, updateVisibleCount]);
 
   // Layer icon helper
   const getLayerIcon = (layer: MapLayer) => {
@@ -495,21 +463,6 @@ const MapView = () => {
           ) : (
             <Navigation className="w-4 h-4" />
           )}
-        </Button>
-
-        {/* Heatmap Toggle */}
-        <Button
-          variant="secondary"
-          size="icon"
-          className={`h-10 w-10 backdrop-blur-md border-2 border-border shadow-sm ${
-            isHeatmapActive
-              ? 'bg-destructive hover:bg-destructive/90'
-              : 'bg-card/90 hover:bg-card'
-          }`}
-          onClick={() => setIsHeatmapActive(!isHeatmapActive)}
-          title={isHeatmapActive ? 'Hide heatmap' : 'Show heatmap'}
-        >
-          <Flame className={`w-4 h-4 ${isHeatmapActive ? 'text-destructive-foreground' : ''}`} />
         </Button>
 
         {/* Discovery Button */}
