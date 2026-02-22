@@ -116,6 +116,18 @@ const MapView = () => {
     setSelectedPlace(place);
     setIsPanelOpen(true);
     setIsLoadingArticle(true);
+
+    // Pan map so the pin sits in the left-center of the visible map area
+    const map = mapRef.current;
+    if (map) {
+      const mapSize = map.getSize();
+      // Offset by ~25% of map width to the right so pin ends up in left-center
+      const offsetX = mapSize.x * 0.25;
+      const targetPoint = map.latLngToContainerPoint([place.lat, place.lon]);
+      const centeredPoint = L.point(targetPoint.x - offsetX, mapSize.y / 2);
+      const newCenter = map.containerPointToLatLng(centeredPoint);
+      map.panTo(newCenter, { animate: true, duration: 0.5 });
+    }
     setSelectedArticle(null);
 
     try {
