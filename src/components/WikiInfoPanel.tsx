@@ -1,9 +1,7 @@
-import { useState } from 'react';
-import { X, ExternalLink, MapPin, Loader2, BookOpen, Bookmark, Navigation, Images } from 'lucide-react';
+import { X, ExternalLink, MapPin, Loader2, BookOpen, Bookmark, Navigation } from 'lucide-react';
 import { WikiArticle } from '@/lib/wikipedia';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import PhotoGallery from './PhotoGallery';
 
 interface WikiInfoPanelProps {
   article: WikiArticle | null;
@@ -15,7 +13,6 @@ interface WikiInfoPanelProps {
 }
 
 const WikiInfoPanel = ({ article, isLoading, onClose, onToggleBookmark, isBookmarked, language = 'en' }: WikiInfoPanelProps) => {
-  const [showGallery, setShowGallery] = useState(false);
 
   if (!article && !isLoading) return null;
 
@@ -111,28 +108,7 @@ const WikiInfoPanel = ({ article, isLoading, onClose, onToggleBookmark, isBookma
                   </Button>
                 </a>
               )}
-              <Button
-                variant={showGallery ? "default" : "outline"}
-                size="sm"
-                onClick={() => setShowGallery(!showGallery)}
-                className="h-8 gap-1.5"
-              >
-                <Images className="w-3.5 h-3.5" />
-                <span className="text-xs">Photos</span>
-              </Button>
             </div>
-
-            {/* Photo Gallery */}
-            {showGallery && (
-              <PhotoGallery
-                pageid={article.pageid}
-                language={language}
-                isOpen={showGallery}
-                onClose={() => setShowGallery(false)}
-              />
-            )}
-
-            {/* Extract */}
             <p className="text-card-foreground/85 leading-relaxed text-[15px]">
               {article.extract}
             </p>
