@@ -41,7 +41,7 @@ export async function fetchNearbyPlaces(
   const safeLat = Math.min(90, Math.max(-90, lat));
   const safeLon = ((((lon + 180) % 360) + 360) % 360) - 180;
 
-  const url = `https://${language}.wikipedia.org/w/api.php?action=query&list=geosearch&gscoord=${safeLat}|${safeLon}&gsradius=${safeRadius}&gslimit=100&format=json&origin=*`;
+  const url = `https://${language}.wikipedia.org/w/api.php?action=query&list=geosearch&gscoord=${safeLat}|${safeLon}&gsradius=${safeRadius}&gslimit=200&format=json&origin=*`;
 
   try {
     const response = await fetch(url);

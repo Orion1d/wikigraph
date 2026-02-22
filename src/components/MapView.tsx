@@ -392,7 +392,7 @@ const MapView = () => {
               <div className="bg-card/90 backdrop-blur-md px-4 py-2.5 border-2 border-border shadow-sm flex items-center gap-3">
                 <div className="w-2 h-2 rounded-full bg-primary animate-pulse" />
                 <span className="text-sm font-medium text-card-foreground">
-                  <span className="text-primary font-bold">{visibleCount}</span> places visible
+                  <span className="text-primary font-bold">{visibleCount >= 200 ? '200+' : visibleCount}</span> places visible
                 </span>
               </div>
             )}
