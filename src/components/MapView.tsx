@@ -516,7 +516,7 @@ const MapView = () => {
               <Menu className="w-4 h-4" />
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="start" side="top" className="z-[2000] bg-card border-2 border-border shadow-md min-w-[180px]">
+          <DropdownMenuContent align="start" side="top" className="z-[2000] bg-card border border-border shadow-md min-w-[160px]">
             <DropdownMenuItem
               onClick={() => setShowSearch(true)}
               className="flex items-center gap-3 cursor-pointer text-foreground"
@@ -540,20 +540,13 @@ const MapView = () => {
               {theme === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
               <span className="font-medium">{theme === 'dark' ? 'Light Mode' : 'Dark Mode'}</span>
             </DropdownMenuItem>
-            <DropdownMenuItem
-              onClick={() => setShowBookmarks(true)}
-              className="flex items-center gap-3 cursor-pointer text-foreground"
-            >
-              <Bookmark className="w-4 h-4" />
-              <span className="font-medium">Bookmarks ({bookmarks.length})</span>
-            </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
 
       {/* Language Selection Popup */}
       {showLanguageMenu && (
-        <div className="absolute bottom-4 left-4 z-[1001] bg-card/95 backdrop-blur-md border border-border shadow-lg w-[120px] rounded-md overflow-hidden">
+        <div className="absolute bottom-4 left-4 z-[1001] bg-card/95 backdrop-blur-md border border-border shadow-lg rounded-md overflow-hidden">
           <div className="flex items-center gap-1.5 px-2 py-1.5 border-b border-border">
             <Button
               variant="ghost"
