@@ -553,24 +553,24 @@ const MapView = () => {
 
       {/* Language Selection Popup */}
       {showLanguageMenu && (
-        <div className="absolute bottom-4 left-4 z-[1001] bg-card/95 backdrop-blur-md border-2 border-border shadow-lg w-[140px]">
-          <div className="flex items-center gap-2 px-3 py-2 border-b border-border">
+        <div className="absolute bottom-4 left-4 z-[1001] bg-card/95 backdrop-blur-md border border-border shadow-lg w-[120px] rounded-md overflow-hidden">
+          <div className="flex items-center gap-1.5 px-2 py-1.5 border-b border-border">
             <Button
               variant="ghost"
               size="icon"
               onClick={() => setShowLanguageMenu(false)}
-              className="h-7 w-7 hover:bg-accent"
+              className="h-6 w-6 hover:bg-accent"
             >
-              <ArrowLeft className="w-4 h-4" />
+              <ArrowLeft className="w-3.5 h-3.5" />
             </Button>
-            <span className="font-medium text-sm text-foreground">Language</span>
+            <span className="font-medium text-xs text-foreground">Language</span>
           </div>
-          <div className="max-h-[250px] overflow-auto py-1">
+          <div className="max-h-[220px] overflow-auto">
             {AVAILABLE_LANGUAGES.map((lang) => (
               <button
                 key={lang}
                 onClick={() => handleLanguageChange(lang)}
-                className={`w-full text-left px-4 py-2 text-sm hover:bg-accent cursor-pointer transition-colors ${
+                className={`w-full text-left px-3 py-1.5 text-xs hover:bg-accent cursor-pointer transition-colors ${
                   selectedLanguage === lang ? 'bg-accent font-semibold' : 'text-foreground'
                 }`}
               >
