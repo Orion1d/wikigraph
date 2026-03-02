@@ -30,6 +30,8 @@ export interface WikiImage {
   height: number;
 }
 
+export const MAX_VISIBLE_PLACES = 200;
+
 export async function fetchNearbyPlaces(
   lat: number,
   lon: number,
@@ -37,16 +39,36 @@ export async function fetchNearbyPlaces(
   language: string = 'en'
 ): Promise<WikiPlace[]> {
   const safeRadius = Math.floor(Math.min(Math.max(radius, 10), 10000));
-
   const safeLat = Math.min(90, Math.max(-90, lat));
   const safeLon = ((((lon + 180) % 360) + 360) % 360) - 180;
 
-  const url = `https://${language}.wikipedia.org/w/api.php?action=query&list=geosearch&gscoord=${safeLat}|${safeLon}&gsradius=${safeRadius}&gslimit=200&format=json&origin=*`;
+  const perRequestLimit = 100;
+  let gscontinue: string | undefined;
+  const allPlaces: WikiPlace[] = [];
+  const seenPageIds = new Set<number>();
 
   try {
-    const response = await fetch(url);
-    const data = await response.json();
-    return data.query?.geosearch || [];
+    while (allPlaces.length < MAX_VISIBLE_PLACES) {
+      const requestLimit = Math.min(perRequestLimit, MAX_VISIBLE_PLACES - allPlaces.length);
+      const continueParam = gscontinue ? `&gscontinue=${encodeURIComponent(gscontinue)}` : '';
+      const url = `https://${language}.wikipedia.org/w/api.php?action=query&list=geosearch&gscoord=${safeLat}|${safeLon}&gsradius=${safeRadius}&gslimit=${requestLimit}${continueParam}&format=json&origin=*`;
+
+      const response = await fetch(url);
+      const data = await response.json();
+      const batch: WikiPlace[] = data.query?.geosearch || [];
+
+      for (const place of batch) {
+        if (seenPageIds.has(place.pageid)) continue;
+        seenPageIds.add(place.pageid);
+        allPlaces.push(place);
+        if (allPlaces.length >= MAX_VISIBLE_PLACES) break;
+      }
+
+      gscontinue = data.continue?.gscontinue;
+      if (!gscontinue || batch.length === 0) break;
+    }
+
+    return allPlaces;
   } catch (error) {
     console.error('Error fetching nearby places:', error);
     return [];
