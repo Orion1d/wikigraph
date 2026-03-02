@@ -6,7 +6,7 @@ import 'leaflet.markercluster/dist/MarkerCluster.css';
 import 'leaflet.markercluster/dist/MarkerCluster.Default.css';
 
 import { toast } from 'sonner';
-import { fetchArticleDetails, searchPlaceByName, WikiPlace, WikiArticle } from '@/lib/wikipedia';
+import { fetchArticleDetails, searchPlaceByName, WikiPlace, WikiArticle, MAX_VISIBLE_PLACES } from '@/lib/wikipedia';
 import WikiInfoPanel from './WikiInfoPanel';
 import SearchPanel, { WikiLanguage } from './SearchPanel';
 import { Loader2, Layers, Navigation, Map, Satellite, ZoomIn, ZoomOut, Menu, Moon, Sun, Bookmark, Search, Globe, ChevronRight, ArrowLeft, Compass } from 'lucide-react';
@@ -404,7 +404,7 @@ const MapView = () => {
               <div className="bg-card/90 backdrop-blur-md px-4 py-2.5 border-2 border-border shadow-sm flex items-center gap-3">
                 <div className="w-2 h-2 rounded-full bg-primary animate-pulse" />
                 <span className="text-sm font-medium text-card-foreground">
-                  <span className="text-primary font-bold">{visibleCount >= 200 ? '200+' : visibleCount}</span> places visible
+                  <span className="text-primary font-bold">{visibleCount >= MAX_VISIBLE_PLACES ? `${MAX_VISIBLE_PLACES}+` : visibleCount}</span> places visible
                 </span>
               </div>
             )}
