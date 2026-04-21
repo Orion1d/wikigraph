@@ -1,0 +1,41 @@
+================================================================================
+WIKIGRAPH — CHANGE NOTES
+Format: YYYY-MM-DD | Author/context | Summary
+================================================================================
+
+2026-04-21 | Mobile / a11y / perf follow-ups
+  - Viewport: min-h-[100dvh] on Index, map shell, About, Install, NotFound; flex column so MapView fills height.
+  - Safe areas: env(safe-area-inset-*) on MapView chrome, SearchPanel, WikiInfoPanel, About/Install headers & footers.
+  - Touch: 44px minimum targets on map controls and panel chrome; aria-labels on icon-only buttons; dialog roles on panels.
+  - Focus: useFocusTrap + useEscapeKey on SearchPanel and WikiInfoPanel; stable closeSearchPanel callback.
+  - motion-reduce: animate-none on splash, loaders, pulse status, article spinner.
+  - Prefetch MapView chunk via requestIdleCallback (fallback setTimeout) on Index mount.
+
+2026-04-21 | Optional improvements (plan)
+  - Perf: lazy-load MapView; splash/about/install use /pwa-192x192.png (smaller than bundled PNG).
+  - URL state: ?lat=&lng=&z=&lang=&pageid= synced via replaceState; shareable map + article deep links.
+  - API UX: Wikipedia helpers return WikiApiResult; toasts + Retry for places/search/article errors;
+    WikiInfoPanel error state with Try again.
+
+2026-04-21 | Lint / static analysis
+  - Fixed ESLint errors: empty interfaces (command, textarea), explicit any in
+    wikipedia image parser, require() in tailwind.config.ts.
+  - ESLint: disabled react-refresh/only-export-components for src/components/ui
+    (shadcn pattern). npm run lint now passes; tsc and vite build were already OK.
+  - Ran `npm audit fix` (non-breaking): reduced reported vulnerabilities; 6 remain
+    tied to vite/esbuild dev server and vite-plugin-pwa/workbox chain (need major
+    upgrades or `--force` to clear — not applied).
+
+2026-04-21 | Cleanup — Lovable / third-party build marks
+  - Removed devDependency `lovable-tagger` and `componentTagger` from vite.config.ts.
+  - Replaced `https://wikigraph.lovable.app` with neutral placeholder
+    `https://wikigraph.app` in index.html, public/robots.txt, public/sitemap.xml.
+  - Replaced README with WikiGraph-focused local dev / deploy notes (no Lovable).
+  - Regenerated package-lock.json / bun.lock (no lovable-tagger).
+
+================================================================================
+How to use
+----------
+- Log each meaningful change as a new dated block (features, fixes, refactors).
+- For big behavior changes, also update APP_FEATURES_AND_FUNCTIONS.txt.
+================================================================================

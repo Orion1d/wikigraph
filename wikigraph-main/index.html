@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+
+    <title>WikiGraph | Interactive Wikipedia Map Explorer</title>
+    <meta name="description" content="Explore Wikipedia places on an interactive world map. Discover landmarks, history, and nearby points of interest in multiple languages." />
+    <meta name="author" content="WikiGraph" />
+    <meta name="keywords" content="Wikipedia map, interactive map, map explorer, landmarks map, geography discovery, travel learning, world map articles" />
+    <link rel="canonical" href="https://wikigraph.app/" />
+
+    <!-- PWA Meta Tags -->
+    <meta name="theme-color" content="#000000" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="WikiGraph" />
+
+    <!-- PWA Icons -->
+    <link rel="icon" type="image/png" href="/favicon.ico" />
+    <link rel="apple-touch-icon" href="/pwa-192x192.png" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+
+    <!-- Open Graph -->
+    <meta property="og:title" content="WikiGraph | Interactive Wikipedia Map Explorer" />
+    <meta property="og:description" content="Explore Wikipedia places on an interactive world map. Discover landmarks, history, and nearby points of interest in multiple languages." />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="WikiGraph" />
+    <meta property="og:image" content="https://wikigraph.app/pwa-512x512.png" />
+    <meta property="og:image:width" content="512" />
+    <meta property="og:image:height" content="512" />
+    <meta property="og:url" content="https://wikigraph.app/" />
+    <meta property="og:locale" content="en_US" />
+
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="WikiGraph | Interactive Wikipedia Map Explorer" />
+    <meta name="twitter:description" content="Explore Wikipedia places on an interactive world map and discover nearby knowledge." />
+    <meta name="twitter:image" content="https://wikigraph.app/pwa-512x512.png" />
+
+    <!-- Structured Data -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "WebApplication",
+      "name": "WikiGraph",
+      "url": "https://wikigraph.app/",
+      "description": "Explore Wikipedia places on an interactive world map. Discover landmarks, history, and nearby points of interest in multiple languages.",
+      "applicationCategory": "TravelApplication",
+      "operatingSystem": "Any",
+      "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" }
+    }
+    </script>
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "WebSite",
+      "name": "WikiGraph",
+      "url": "https://wikigraph.app/",
+      "inLanguage": "en",
+      "potentialAction": {
+        "@type": "SearchAction",
+        "target": "https://wikigraph.app/?q={search_term_string}",
+        "query-input": "required name=search_term_string"
+      }
+    }
+    </script>
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "Organization",
+      "name": "WikiGraph",
+      "url": "https://wikigraph.app/",
+      "logo": "https://wikigraph.app/pwa-512x512.png"
+    }
+    </script>
+  </head>
+
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

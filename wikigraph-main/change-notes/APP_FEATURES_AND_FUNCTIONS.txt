@@ -1,0 +1,51 @@
+================================================================================
+WIKIGRAPH — APP FEATURES & FUNCTIONS (reference)
+Last updated: 2026-04-21
+================================================================================
+
+PURPOSE
+-------
+Explore geotagged Wikipedia articles on an interactive map. Data comes from the
+public Wikipedia Action API in the browser (no app-specific backend).
+
+TECH STACK (short)
+------------------
+Vite, React 18, TypeScript, Tailwind, shadcn/ui (Radix), React Router,
+TanStack Query, Leaflet + marker clustering, vite-plugin-pwa, next-themes.
+
+ROUTES (src/App.tsx)
+--------------------
+/  → Index (splash ~2s, then map)  |  /install  |  /about  |  * → NotFound
+
+KEY FILES
+---------
+MapView.tsx      — Leaflet UI, layers, markers, search, discovery, panels.
+wikipedia.ts     — fetchNearbyPlaces, fetchArticleDetails, fetchArticleImages,
+                   searchPlaceByName (MAX_VISIBLE_PLACES = 200).
+mapConstants.ts  — TILE_LAYERS, MIN_SCAN_ZOOM (11), DISCOVERY_THEMES,
+                   AVAILABLE_LANGUAGES.
+useMapPlaces.ts  — Debounced geosearch by viewport; visible count.
+useDiscovery.ts  — Themed random fly-to locations.
+useHoverPreview.ts — Hover card + LRU cache for extracts.
+
+SEO / STATIC URLS
+-----------------
+index.html, public/robots.txt, public/sitemap.xml use placeholder host
+https://wikigraph.app — replace with your production URL when deploying.
+
+MAP URL QUERY PARAMS
+--------------------
+On / the map syncs the address bar (history.replaceState): lat, lng, z, lang, optional pageid
+for bookmarks and sharing. Opening with pageid loads that Wikipedia article when possible.
+
+MOBILE / A11Y
+-------------
+Full-height layout uses min-height 100dvh; notched devices get safe-area padding on overlays and chrome.
+Search and article panels use focus trap and Escape to close; map icon buttons have aria-labels and 44px targets.
+Map chunk is prefetched in idle time after load.
+
+See README.md for dev commands (npm run dev, port 8080).
+
+================================================================================
+End of reference — extend when you add major features.
+================================================================================

@@ -1,0 +1,6 @@
+User-agent: *
+Allow: /
+Disallow: /sw.js
+Disallow: /workbox-*.js
+
+Sitemap: https://wikigraph.app/sitemap.xml
